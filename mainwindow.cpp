@@ -44,7 +44,7 @@ std::string getSctVersion(std::string repoPath) {
     std::ifstream file(repoPath + "/Data/Sector/Hong-Kong-Sector-File.sct");
     if (!file.is_open()) {
         std::cerr << "Failed to open the file." << std::endl;
-        return NULL;
+        return "";
     }
     std::string line;
     bool found = false;
@@ -77,6 +77,7 @@ MainWindow::MainWindow(QWidget *parent)
     textLabel = ui->label1;
     textLabel->setAlignment(Qt::AlignCenter);
 
+
     installButton = ui->pushButton;
     migrateOldButton = ui->pushButton_2;
     updateButton = ui->pushButton_3;
@@ -94,6 +95,9 @@ void MainWindow::showMessage(const std::string& message)
 {
     QString q = QString::fromStdString(message);
     textLabel -> setText(q);
+    QFont font = ui->label1->font();
+    font.setPointSize(12);
+    ui->label1->setFont(font);
 }
 
 void MainWindow::installPackage() {
@@ -213,7 +217,7 @@ void MainWindow::updatePackage() {
     error = git_remote_fetch(remote, nullptr, &fetch_options, "pull");
     if (error != 0) {
         showMessage("Error pulling changes: " + std::string(giterr_last()->message));
-        git_stash_apply(repo, 0, &apply_options);
+        git_stash_pop(repo, 0, &apply_options);
         git_status_list_free(status_list);
         git_remote_free(remote);
         git_repository_free(repo);
@@ -226,6 +230,23 @@ void MainWindow::updatePackage() {
     git_oid fetch_head_id;
     git_reference_name_to_id(&fetch_head_id, repo, "FETCH_HEAD");
 
+    //checkout main branch
+    git_object* main_obj;
+    git_object_lookup(&main_obj, repo, &head_id, GIT_OBJECT_ANY);
+    git_checkout_options checkout_options = GIT_CHECKOUT_OPTIONS_INIT;
+    checkout_options.checkout_strategy = GIT_CHECKOUT_FORCE;
+    error = git_checkout_tree(repo, main_obj, &checkout_options);
+    if(error != 0) {
+        showMessage("error checking out main branch: " + std::string(giterr_last()->message));
+        git_object_free(main_obj);
+        git_stash_pop(repo, 0, &apply_options);
+        git_status_list_free(status_list);
+        git_remote_free(remote);
+        git_repository_free(repo);
+        git_libgit2_shutdown();
+    }
+    git_object_free(main_obj);
+
     if(!git_oid_equal(&fetch_head_id, &head_id)) {
         // Differences found, perform fast forward
         git_reference * head_ref = nullptr;
@@ -234,8 +255,6 @@ void MainWindow::updatePackage() {
         git_reference * new_head_ref = nullptr;
         git_reference_set_target(&new_head_ref, head_ref, &fetch_head_id, "pull: fast-forward");
 
-        git_checkout_options checkout_options = GIT_CHECKOUT_OPTIONS_INIT;
-        checkout_options.checkout_strategy = GIT_CHECKOUT_FORCE;
         git_commit* latest = nullptr;
 
         git_commit_lookup(&latest, repo, &fetch_head_id);
@@ -250,34 +269,7 @@ void MainWindow::updatePackage() {
         git_stash_pop(repo, 0, &apply_options);
 
         //if the naughty user changed the .sct name, change it back
-        std::string sctfile_name = repoPath + "/Data/Sector/Hong-Kong-Sector-File.sct";
-        std::fstream sctfile(sctfile_name, std::ios::in | std::ios::out | std::ios::binary);
 
-        std::string target = "[INFO]";
-        std::string line;
-        std::streampos linePos = 0;
-
-        // Search for the line containing the target string
-        while (std::getline(sctfile, line)) {
-            linePos = sctfile.tellg(); // Store the position of the current line
-            if (line.find(target) != std::string::npos) {
-                break;
-            }
-        }
-
-        // Check if the target string was found
-        if (line.find(target) != std::string::npos) {
-            // Replace the next line with "Hong Kong Sector File"
-            std::string replacement = new_sector_version;
-            sctfile.seekp(linePos); // Move the write pointer to the beginning of the line
-            sctfile << replacement << std::endl; // Overwrite the line with the replacement text
-        } else {
-            std::cerr << "Target string not found." << std::endl;
-        }
-
-        sctfile.close();
-
-        /*
         std::ifstream inputFile(repoPath + "/Data/Sector/Hong-Kong-Sector-File.sct");
         std::string line;
         std::stringstream updatedContent;
@@ -285,7 +277,7 @@ void MainWindow::updatePackage() {
 
         while (std::getline(inputFile, line)) {
             if (foundInfo) {
-                updatedContent << new_sector_version << std::endl;
+                updatedContent << "Hong Kong Sector Version " << new_sector_version << std::endl;
                 foundInfo = false;
             } else if (line.find("[INFO]") != std::string::npos) {
                 foundInfo = true;
@@ -299,11 +291,10 @@ void MainWindow::updatePackage() {
         std::ofstream outputFile(repoPath + "/Data/Sector/Hong-Kong-Sector-File.sct");
         outputFile << updatedContent.str();
         outputFile.close();
-        */
 
-        showMessage("Sector package updated to version " + repoPath);
+        showMessage("Sector package updated to version " + new_sector_version);
     } else {
-        git_stash_apply(repo, 0, &apply_options);
+        git_stash_pop(repo, 0, &apply_options);
         showMessage("No sector package updates found.");
     }
 
