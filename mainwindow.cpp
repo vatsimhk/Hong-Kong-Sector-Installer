@@ -74,13 +74,18 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Create a layout to manage widgets
 
-    textLabel = ui->label1;
-    textLabel->setAlignment(Qt::AlignCenter);
+    this->setFixedSize(500,450);
 
+    textLabel = ui->messageBox;
+    errorLabel = ui->errorBox;
+    installButton = ui->installButton;
+    migrateOldButton = ui->migrateButton;
+    updateButton = ui->updateButton;
+    QPixmap logo(":/images/hkvacc-blue.png");
+    QPixmap logoScaled = logo.scaled(300, 300, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    ui->logoLabel->setAlignment(Qt::AlignCenter);
+    ui->logoLabel->setPixmap(logoScaled);
 
-    installButton = ui->pushButton;
-    migrateOldButton = ui->pushButton_2;
-    updateButton = ui->pushButton_3;
     connect(installButton, &QPushButton::released, this, &MainWindow::handleInstallButton);
     connect(updateButton, &QPushButton::released, this, &MainWindow::handleUpdateButton);
     connect(migrateOldButton, &QPushButton::released, this, &MainWindow::handleMigrateButton);
@@ -95,9 +100,21 @@ void MainWindow::showMessage(const std::string& message)
 {
     QString q = QString::fromStdString(message);
     textLabel -> setText(q);
-    QFont font = ui->label1->font();
-    font.setPointSize(12);
-    ui->label1->setFont(font);
+    textLabel->setAlignment(Qt::AlignCenter);
+    textLabel->setWordWrap(true);
+}
+
+void MainWindow::showMessage(const std::string& message, const std::string& errorMessage)
+{
+    QString q = QString::fromStdString(message);
+    textLabel -> setText(q);
+    textLabel->setAlignment(Qt::AlignCenter);
+    textLabel->setWordWrap(true);
+
+    QString e = QString::fromStdString(errorMessage);
+    errorLabel -> setText(e);
+    textLabel->setAlignment(Qt::AlignCenter);
+    errorLabel->setWordWrap(true);
 }
 
 void MainWindow::installPackage() {
@@ -119,7 +136,7 @@ void MainWindow::installPackage() {
         repaint();
         error = git_clone(&repo, SECTOR_PACKAGE, repoPath.c_str(), &clone_options);
         if (error != 0) {
-            showMessage("Error cloning repository: " + std::string(giterr_last()->message));
+            showMessage("Error cloning repository: ", std::string(giterr_last()->message));
             git_libgit2_shutdown();
             return;
         }
@@ -149,7 +166,7 @@ void MainWindow::updatePackage() {
 
     int error = git_repository_open(&repo, repoPath.c_str());
     if (error != 0) {
-        showMessage("Error updating Package: " + std::string(giterr_last()->message));
+        showMessage("Error updating Package: ", std::string(giterr_last()->message));
         git_libgit2_shutdown();
         return;
     }
@@ -174,7 +191,7 @@ void MainWindow::updatePackage() {
 
     error = git_remote_lookup(&remote, repo, REMOTE_REF);
     if (error != 0) {
-        showMessage("Error looking up remote: " + std::string(giterr_last()->message));
+        showMessage("Error looking up remote: ", std::string(giterr_last()->message));
         git_repository_free(repo);
         git_libgit2_shutdown();
         return;
@@ -191,7 +208,7 @@ void MainWindow::updatePackage() {
 
     error = git_stash_save(&saved_stash, repo, default_signature, "", 0);
     if(error != 0 && error != GIT_ENOTFOUND) {
-        showMessage("Error stashing changes: " + std::string(giterr_last()->message));
+        showMessage("Error stashing changes: ", std::string(giterr_last()->message));
         git_remote_free(remote);
         git_repository_free(repo);
         git_libgit2_shutdown();
@@ -203,7 +220,7 @@ void MainWindow::updatePackage() {
     git_status_list *status_list = nullptr;
     error = git_status_list_new(&status_list, repo, &status_options);
     if (error != 0) {
-        showMessage("Error getting status: " + std::string(giterr_last()->message));
+        showMessage("Error getting status: ", std::string(giterr_last()->message));
         git_remote_free(remote);
         git_repository_free(repo);
         git_libgit2_shutdown();
@@ -216,7 +233,7 @@ void MainWindow::updatePackage() {
     git_fetch_options fetch_options = GIT_FETCH_OPTIONS_INIT;
     error = git_remote_fetch(remote, nullptr, &fetch_options, "pull");
     if (error != 0) {
-        showMessage("Error pulling changes: " + std::string(giterr_last()->message));
+        showMessage("Error pulling changes: ", std::string(giterr_last()->message));
         git_stash_pop(repo, 0, &apply_options);
         git_status_list_free(status_list);
         git_remote_free(remote);
@@ -237,7 +254,7 @@ void MainWindow::updatePackage() {
     checkout_options.checkout_strategy = GIT_CHECKOUT_FORCE;
     error = git_checkout_tree(repo, main_obj, &checkout_options);
     if(error != 0) {
-        showMessage("error checking out main branch: " + std::string(giterr_last()->message));
+        showMessage("error checking out main branch: ", std::string(giterr_last()->message));
         git_object_free(main_obj);
         git_stash_pop(repo, 0, &apply_options);
         git_status_list_free(status_list);
@@ -319,7 +336,7 @@ void MainWindow::migrateOldInstall() {
 
     int error = git_repository_open(&repo, repoPath.c_str());
     if(error == 0) {
-        showMessage("This install already uses git! Use the Update button instead");
+        showMessage("New install detected. Use the Update button instead");
 
         git_repository_free(repo);
         git_libgit2_shutdown();
@@ -328,7 +345,7 @@ void MainWindow::migrateOldInstall() {
 
     std::ifstream checkFile(repoPath + "/Data/Sector/Hong-Kong-Sector-File.sct");
     if(!checkFile.is_open()) {
-        showMessage("Unable to locate Hong Kong Sector File in this folder. Update Aborted");
+        showMessage("Unable to locate Hong Kong Sector File in this folder");
         git_libgit2_shutdown();
         return;
     }
@@ -340,7 +357,7 @@ void MainWindow::migrateOldInstall() {
     std::string temp_dir = QCoreApplication::applicationDirPath().toStdString() + "/temp";
     error = git_clone(&repo, SECTOR_PACKAGE, temp_dir.c_str(), &clone_options);
     if (error != 0) {
-        showMessage("Error cloning repository: " + std::string(giterr_last()->message));
+        showMessage("Error cloning repository: ", std::string(giterr_last()->message));
         git_libgit2_shutdown();
         return;
     }

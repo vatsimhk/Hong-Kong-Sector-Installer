@@ -25,6 +25,7 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
     void showMessage(const std::string& message);
+    void showMessage(const std::string& message, const std::string& errorMessage);
     void handleUpdateButton();
     void handleInstallButton();
     void handleMigrateButton();
@@ -35,6 +36,7 @@ public:
 private:
     Ui::MainWindow *ui;
     QLabel *textLabel;
+    QLabel *errorLabel;
     QPushButton *installButton;
     QPushButton *updateButton;
     QPushButton *migrateOldButton;
