@@ -101,24 +101,57 @@ color: rgb(0,0,0);</string>
           <bool>false</bool>
          </property>
          <property name="styleSheet">
-          <string notr="true"/>
+          <string notr="true">QPushButton:pressed { background-color: rgb(36,131,179); }</string>
          </property>
          <property name="text">
           <string>Install Sector Package</string>
+         </property>
+         <property name="autoDefault">
+          <bool>false</bool>
+         </property>
+         <property name="default">
+          <bool>true</bool>
+         </property>
+         <property name="flat">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
        <item>
         <widget class="QPushButton" name="updateButton">
+         <property name="styleSheet">
+          <string notr="true">QPushButton:pressed { background-color: rgb(36,131,179); }</string>
+         </property>
          <property name="text">
           <string>Update Sector Package</string>
+         </property>
+         <property name="default">
+          <bool>true</bool>
+         </property>
+         <property name="flat">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
        <item>
         <widget class="QPushButton" name="migrateButton">
+         <property name="mouseTracking">
+          <bool>false</bool>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QPushButton:pressed { background-color: rgb(36,131,179); }</string>
+         </property>
          <property name="text">
           <string>Migrate Old Installation</string>
+         </property>
+         <property name="autoDefault">
+          <bool>false</bool>
+         </property>
+         <property name="default">
+          <bool>true</bool>
+         </property>
+         <property name="flat">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
