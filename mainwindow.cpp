@@ -37,6 +37,7 @@ void deleteLegacyFiles(std::string repoPath) {
     std::filesystem::remove_all(repoPath + "/Data/Settings/Legacy APP");
     std::filesystem::remove_all(repoPath + "/Data/Settings/Legacy CTR");
     std::filesystem::remove_all(repoPath + "/Data/Settings/Legacy TWR-GND-DEL");
+    std::filesystem::remove_all(repoPath + "/Data/ASR/Legacy ASR/");
 }
 
 std::string getSctVersion(std::string repoPath) {
@@ -102,6 +103,9 @@ void MainWindow::showMessage(const std::string& message)
     textLabel -> setText(q);
     textLabel->setAlignment(Qt::AlignCenter);
     textLabel->setWordWrap(true);
+
+    QString e = QString::fromStdString("");
+    errorLabel -> setText(e);
 }
 
 void MainWindow::showMessage(const std::string& message, const std::string& errorMessage)
@@ -113,7 +117,7 @@ void MainWindow::showMessage(const std::string& message, const std::string& erro
 
     QString e = QString::fromStdString(errorMessage);
     errorLabel -> setText(e);
-    textLabel->setAlignment(Qt::AlignCenter);
+    errorLabel->setAlignment(Qt::AlignCenter);
     errorLabel->setWordWrap(true);
 }
 
@@ -144,7 +148,7 @@ void MainWindow::installPackage() {
         git_repository_free(repo);
 
         deleteLegacyFiles(repoPath);
-        showMessage("Hong Kong Sector Package Successfully Installed! Version " + getSctVersion(repoPath));
+        showMessage("Hong Kong Sector Package Successfully Installed!\n\nVersion " + getSctVersion(repoPath));
     } else {
         showMessage("Folder already contains Hong Kong Sector Package");
     }
@@ -206,6 +210,8 @@ void MainWindow::updatePackage() {
     git_signature* default_signature = nullptr;
     git_signature_default(&default_signature, repo);
 
+    showMessage("Stashing your changes...");
+    repaint();
     error = git_stash_save(&saved_stash, repo, default_signature, "", 0);
     if(error != 0 && error != GIT_ENOTFOUND) {
         showMessage("Error stashing changes: ", std::string(giterr_last()->message));
@@ -284,6 +290,7 @@ void MainWindow::updatePackage() {
 
         //re apply custom settings
         git_stash_pop(repo, 0, &apply_options);
+        git_reset(repo, (git_object*)latest, GIT_RESET_MIXED, NULL);
 
         //if the naughty user changed the .sct name, change it back
 
@@ -351,106 +358,129 @@ void MainWindow::migrateOldInstall() {
     }
     checkFile.close();
 
+    std::string newRepoPath = repoPath.substr(0, repoPath.std::string::find_last_of("\\/"));
+    std::filesystem::rename(repoPath, newRepoPath + "/Hong-Kong-Sector (Old Backup)");
+    repoPath = newRepoPath + "/Hong-Kong-Sector (Old Backup)";
+    newRepoPath += "/Hong-Kong-Sector-Package";
+
     git_clone_options clone_options = GIT_CLONE_OPTIONS_INIT;
     showMessage("Cloning Repository...");
     repaint();
-    std::string temp_dir = QCoreApplication::applicationDirPath().toStdString() + "/temp";
-    error = git_clone(&repo, SECTOR_PACKAGE, temp_dir.c_str(), &clone_options);
+    error = git_clone(&repo, SECTOR_PACKAGE, newRepoPath.c_str(), &clone_options);
     if (error != 0) {
         showMessage("Error cloning repository: ", std::string(giterr_last()->message));
         git_libgit2_shutdown();
         return;
     }
 
-    git_repository_free(repo);
-    git_libgit2_shutdown();
+    error = git_repository_open(&repo, newRepoPath.c_str());
+    if (error != 0) {
+        showMessage("Error opening repository after cloning: ", std::string(giterr_last()->message));
+        git_libgit2_shutdown();
+        return;
+    }
+
+    git_remote *remote = nullptr;
+    git_remote_lookup(&remote, repo, REMOTE_REF);
+
+    std::string user_version = getSctVersion(repoPath);
+    std::string tag = "refs/tags/" + user_version.substr(0, 4);
+
+    git_reference *ref;
+    git_reference_lookup(&ref, repo, LOCAL_BRANCH);
+
+    git_reference *new_ref;
+    error = git_reference_lookup(&new_ref, repo, tag.c_str());
+    if(error != 0) {
+        showMessage("Unable to detect sector file version\nThis usually occurs if you changed the version name in the .sct.", std::string(giterr_last()->message));
+        git_reference_free(ref);
+        git_remote_free(remote);
+        git_repository_free(repo);
+        git_libgit2_shutdown();
+        return;
+    }
+    git_revwalk *walker;
+    git_revwalk_new(&walker, repo);
+    git_revwalk_push_ref(walker, tag.c_str());
+
+    git_oid id;
+    git_revwalk_next(&id, walker);
+
+    git_reference_set_target(&new_ref, ref, &id,NULL);
+
+    if (0 != git_repository_set_head_detached(repo, &id)) std::cerr << "problem occured while detaching head" << std::endl;
+
+
+    git_checkout_options opts = GIT_CHECKOUT_OPTIONS_INIT;
+    opts.checkout_strategy = GIT_CHECKOUT_FORCE;
+    if (0 != git_checkout_head(repo, &opts)) std::cout << "problem checkout head" << std::endl;
+
+    git_revwalk_free(walker);
+
+    git_commit* latest = nullptr;
+    git_oid fetch_head_id;
+    git_reference_name_to_id(&fetch_head_id, repo, "FETCH_HEAD");
+    git_commit_lookup(&latest, repo, &fetch_head_id);
+    git_reset(repo, (git_object*)latest, GIT_RESET_HARD, NULL);
 
     showMessage("Copying your existing settings...");
     repaint();
 
-    //copy common files with settings into the cloned repo
-    std::filesystem::remove(temp_dir + "/Data/Plugins/TopSky/TopSkyCPDLChoppieCode.txt");
-    std::filesystem::remove(temp_dir + "/Data/Plugins/TopSky/TopSkySettings.txt");
-    std::filesystem::remove(temp_dir + "/Data/Settings/GeneralSettings.txt");
-    std::filesystem::remove(temp_dir + "/Data/Settings/Lists.txt");
-    std::filesystem::remove(temp_dir + "/Data/Settings/LoginProfiles.txt");
-    std::filesystem::remove(temp_dir + "/Data/Settings/Plugins.txt");
-    std::filesystem::remove(temp_dir + "/Data/Settings/ScreenLayout.txt");
-    std::filesystem::remove(temp_dir + "/Data/Settings/Symbology.txt");
-    std::filesystem::remove(temp_dir + "/Data/Settings/Symbology_black.txt");
-    std::filesystem::remove(temp_dir + "/Data/Settings/Symbology_blue.txt");
-    std::filesystem::remove(temp_dir + "/Hong Kong TOPSKY.prf");
-    std::filesystem::copy(repoPath + "/Data/Plugins/TopSky/TopSkyCPDLChoppieCode.txt", temp_dir + "/Data/Plugins/TopSky/TopSkyCPDLChoppieCode.txt", std::filesystem::copy_options::overwrite_existing);
-    std::filesystem::copy(repoPath + "/Data/Plugins/TopSky/TopSkySettings.txt", temp_dir + "/Data/Plugins/TopSky/TopSkySettings.txt", std::filesystem::copy_options::overwrite_existing);
-    std::filesystem::copy(repoPath + "/Data/Settings/GeneralSettings.txt", temp_dir + "/Data/Settings/GeneralSettings.txt", std::filesystem::copy_options::overwrite_existing);
-    std::filesystem::copy(repoPath + "/Data/Settings/Lists.txt", temp_dir + "/Data/Settings/Lists.txt", std::filesystem::copy_options::overwrite_existing);
-    std::filesystem::copy(repoPath + "/Data/Settings/LoginProfiles.txt", temp_dir + "/Data/Settings/LoginProfiles.txt", std::filesystem::copy_options::overwrite_existing);
-    std::filesystem::copy(repoPath + "/Data/Settings/Plugins.txt", temp_dir + "/Data/Settings/Plugins.txt", std::filesystem::copy_options::overwrite_existing);
-    std::filesystem::copy(repoPath + "/Data/Settings/ScreenLayout.txt", temp_dir + "/Data/Settings/ScreenLayout.txt", std::filesystem::copy_options::overwrite_existing);
-    std::filesystem::copy(repoPath + "/Data/Settings/Symbology.txt", temp_dir + "/Data/Settings/Symbology.txt", std::filesystem::copy_options::overwrite_existing);
-    std::filesystem::copy(repoPath + "/Data/Settings/Symbology_black.txt", temp_dir + "/Data/Settings/Symbology_black.txt", std::filesystem::copy_options::overwrite_existing);
-    std::filesystem::copy(repoPath + "/Data/Settings/Symbology_blue.txt", temp_dir + "/Data/Settings/Symbology_blue.txt", std::filesystem::copy_options::overwrite_existing);
-    std::filesystem::copy(repoPath + "/Hong Kong TOPSKY.prf", temp_dir + "/Hong Kong TOPSKY.prf", std::filesystem::copy_options::overwrite_existing);
+    //copy files into repo
+    std::filesystem::remove_all(newRepoPath + "/Data");
+    std::filesystem::copy(repoPath + "/Data", newRepoPath + "/Data", std::filesystem::copy_options::recursive);
+    std::filesystem::remove(newRepoPath + "/Hong Kong TOPSKY.prf");
+    std::filesystem::copy(repoPath + "/Hong Kong TOPSKY.prf", newRepoPath + "/Hong Kong TOPSKY.prf");
 
-    // overwrite everything else
-    std::filesystem::remove_all(repoPath);
-    repoPath = repoPath.substr(0, repoPath.std::string::find_last_of("\\/"));
-    repoPath += "/Hong-Kong-Sector-Package";
-    std::filesystem::copy(temp_dir, repoPath, std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing);
+    //stash changes
+    git_stash_save_options save_options = GIT_STASH_SAVE_OPTIONS_INIT;
+    git_stash_apply_options apply_options = GIT_STASH_APPLY_OPTIONS_INIT;
 
-    showMessage("Cleaning up...");
+    git_oid saved_stash;
+    git_signature* default_signature = nullptr;
+    git_signature_default(&default_signature, repo);
+
+    showMessage("Stashing your changes...");
     repaint();
-    deleteLegacyFiles(repoPath);
-    int count = 0;
-    while (count < 5)   //give up after 5, there should be just 2 in a git repo
-    {
-        try
-        {
-            std::filesystem::remove_all(temp_dir);
-            break;     // all done
-        }
-        catch (std::filesystem::filesystem_error &e)
-        {
-            std::this_thread::sleep_for (std::chrono::milliseconds(250));
-            std::string f ( e.what() );
-            int p = f.find("[");
-            p = f.find("[",p+1);
-            f = f.substr(p+1);
-            f = f.substr(0,f.length()-1);
-            std::filesystem::permissions(
-                f, std::filesystem::perms::owner_write );
-            count++;
-        }
+    error = git_stash_save(&saved_stash, repo, default_signature, "", 0);
+    if(error != 0 && error != GIT_ENOTFOUND) {
+        showMessage("Error stashing changes: ", std::string(giterr_last()->message));
+        git_remote_free(remote);
+        git_repository_free(repo);
+        git_libgit2_shutdown();
+        return;
     }
 
-    /* git merge method...maybe fix in the future
-    git_merge_file_input ancestor_file = GIT_MERGE_FILE_INPUT_INIT;
-    ancestor_file.path = NULL;
-    ancestor_file.ptr = getFileContents("../ancestor.txt").c_str();
-    ancestor_file.size = strlen(ancestor_file.ptr);
+    //now checkout main branch
+    git_object *treeish = NULL;
+    git_revparse_single(&treeish, repo, "main");
+    git_checkout_tree(repo, treeish, &opts);
+    git_repository_set_head(repo, "refs/heads/main");
+    git_object_free(treeish);
 
-    git_merge_file_input ours_file = GIT_MERGE_FILE_INPUT_INIT;
-    ours_file.path = NULL;
-    ours_file.ptr = getFileContents("../ours.txt").c_str(); // Content from our branch
-    ours_file.size = strlen(ours_file.ptr);
+    //perform fastforward to update
+    git_fetch_options fetch_options = GIT_FETCH_OPTIONS_INIT;
+    git_remote_fetch(remote, nullptr, &fetch_options, "pull");
+    git_reference * head_ref = nullptr;
+    git_reference_lookup(&head_ref, repo, LOCAL_BRANCH);
 
-    git_merge_file_input theirs_file = GIT_MERGE_FILE_INPUT_INIT;
-    theirs_file.path = NULL;
-    theirs_file.ptr = getFileContents("../theirs.txt").c_str(); // Content from their branch
-    theirs_file.size = strlen(theirs_file.ptr);
+    git_reference * new_head_ref = nullptr;
+    git_reference_set_target(&new_head_ref, head_ref, &fetch_head_id, "pull: fast-forward");
+    git_reference_name_to_id(&fetch_head_id, repo, "FETCH_HEAD");
+    git_commit_lookup(&latest, repo, &fetch_head_id);
+    git_reset(repo, (git_object*)latest, GIT_RESET_HARD, NULL);
 
-    git_merge_file_result result;
-    git_merge_file_options merge_options = GIT_MERGE_FILE_OPTIONS_INIT;
-    merge_options.favor = GIT_MERGE_FILE_FAVOR_THEIRS;
-    git_merge_file(&result, &ancestor_file, &ours_file, &theirs_file, &merge_options);
+    //re apply custom settings
+    git_stash_pop(repo, 0, &apply_options);
+    git_reset(repo, (git_object*)latest, GIT_RESET_MIXED, NULL);
+    git_repository_free(repo);
+    git_remote_free(remote);
+    git_reference_free(ref);
+    git_reference_free(new_ref);
+    git_libgit2_shutdown();
 
-    std::ofstream result_file;
-    result_file.open("./result.txt");
-    result_file.write((char*)result.ptr, sizeof(result.ptr));
-    result_file.close();
-    */
-
-    showMessage("Sector File Updated to " + getSctVersion(repoPath));
+    deleteLegacyFiles(newRepoPath);
+    showMessage("Sector File Updated to " + getSctVersion(newRepoPath));
 }
 
 
