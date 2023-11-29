@@ -208,7 +208,10 @@ void MainWindow::updatePackage() {
 
     git_oid saved_stash;
     git_signature* default_signature = nullptr;
-    git_signature_default(&default_signature, repo);
+    error = git_signature_default(&default_signature, repo);
+    if(error == GIT_ENOTFOUND) {
+        git_signature_now(&default_signature, "HKvACC", "info@vathk.com");
+    }
 
     showMessage("Stashing your changes...");
     repaint();
@@ -220,6 +223,7 @@ void MainWindow::updatePackage() {
         git_libgit2_shutdown();
         return;
     }
+    git_signature_free(default_signature);
 
     // Check for differences
     git_status_options status_options = GIT_STATUS_OPTIONS_INIT;
@@ -438,7 +442,10 @@ void MainWindow::migrateOldInstall() {
 
     git_oid saved_stash;
     git_signature* default_signature = nullptr;
-    git_signature_default(&default_signature, repo);
+    error = git_signature_default(&default_signature, repo);
+    if(error == GIT_ENOTFOUND) {
+        git_signature_now(&default_signature, "HKvACC", "info@vathk.com");
+    }
 
     showMessage("Stashing your changes...");
     repaint();
@@ -450,6 +457,7 @@ void MainWindow::migrateOldInstall() {
         git_libgit2_shutdown();
         return;
     }
+    git_signature_free(default_signature);
 
     //now checkout main branch
     git_object *treeish = NULL;
