@@ -12,6 +12,7 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include "mergeconflictdialog.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }

@@ -10,13 +10,16 @@ CONFIG += c++17
 
 SOURCES += \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    mergeconflictdialog.cpp
 
 HEADERS += \
-    mainwindow.h
+    mainwindow.h \
+    mergeconflictdialog.h
 
 FORMS += \
-    mainwindow.ui
+    mainwindow.ui \
+    mergeconflictdialog.ui
 
 INCLUDEPATH += "C:/Users/Justin Wai/source/repos/libgit2-1.7.1/build/include"
 

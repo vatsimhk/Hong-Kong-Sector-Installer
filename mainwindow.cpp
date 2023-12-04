@@ -170,6 +170,13 @@ void MainWindow::updatePackage() {
 
     int error = git_repository_open(&repo, repoPath.c_str());
     if (error != 0) {
+        std::ifstream checkFile(repoPath + "/Data/Sector/Hong-Kong-Sector-File.sct");
+        if(checkFile.is_open()) {
+            checkFile.close();
+            showMessage("Old Installation detected.\n\nMigrate your installation using the Migrate button below.");
+            git_libgit2_shutdown();
+            return;
+        }
         showMessage("Error updating Package: ", std::string(giterr_last()->message));
         git_libgit2_shutdown();
         return;
@@ -294,31 +301,31 @@ void MainWindow::updatePackage() {
 
         //re apply custom settings
         git_stash_pop(repo, 0, &apply_options);
-        git_reset(repo, (git_object*)latest, GIT_RESET_MIXED, NULL);
 
-        //if the naughty user changed the .sct name, change it back
+        //resolve merge conflicts
+        git_index* index = nullptr;
+        git_repository_index(&index, repo);
+        if (git_index_has_conflicts(index))
+        {
+            mergeConflictDialog* conflict_dialog = new mergeConflictDialog;
+            conflict_dialog->setModal(true);
+            conflict_dialog->set_repo_path(repoPath);
 
-        std::ifstream inputFile(repoPath + "/Data/Sector/Hong-Kong-Sector-File.sct");
-        std::string line;
-        std::stringstream updatedContent;
-        bool foundInfo = false;
-
-        while (std::getline(inputFile, line)) {
-            if (foundInfo) {
-                updatedContent << "Hong Kong Sector Version " << new_sector_version << std::endl;
-                foundInfo = false;
-            } else if (line.find("[INFO]") != std::string::npos) {
-                foundInfo = true;
-                updatedContent << line << std::endl;
-            } else {
-                updatedContent << line << std::endl;
+            git_index_conflict_iterator* conflicts = nullptr;
+            git_index_entry *entries[3];
+            git_index_conflict_iterator_new(&conflicts, index);
+            while (git_index_conflict_next((const git_index_entry**)&entries[0], (const git_index_entry**)&entries[1], (const git_index_entry**)&entries[2], conflicts)
+                   != GIT_ITEROVER)
+            {
+                conflict_dialog->add_file(entries[2]->path);
             }
-        }
-        inputFile.close();
+            git_index_conflict_iterator_free(conflicts);
+            git_index_conflict_cleanup(index);
 
-        std::ofstream outputFile(repoPath + "/Data/Sector/Hong-Kong-Sector-File.sct");
-        outputFile << updatedContent.str();
-        outputFile.close();
+            conflict_dialog->exec();
+        }
+
+        git_reset(repo, (git_object*)latest, GIT_RESET_MIXED, NULL);
 
         showMessage("Sector package updated to version " + new_sector_version);
     } else {
@@ -396,7 +403,7 @@ void MainWindow::migrateOldInstall() {
     git_reference *new_ref;
     error = git_reference_lookup(&new_ref, repo, tag.c_str());
     if(error != 0) {
-        showMessage("Unable to detect sector file version\nThis usually occurs if you changed the version name in the .sct.", std::string(giterr_last()->message));
+        showMessage("Unable to detect sector file version\n\nThis usually occurs if you changed the version name in the .sct.", std::string(giterr_last()->message));
         git_reference_free(ref);
         git_remote_free(remote);
         git_repository_free(repo);
@@ -480,6 +487,30 @@ void MainWindow::migrateOldInstall() {
 
     //re apply custom settings
     git_stash_pop(repo, 0, &apply_options);
+
+    //resolve merge conflicts
+    git_index* index = nullptr;
+    git_repository_index(&index, repo);
+    if (git_index_has_conflicts(index))
+    {
+        mergeConflictDialog* conflict_dialog = new mergeConflictDialog;
+        conflict_dialog->setModal(true);
+        conflict_dialog->set_repo_path(newRepoPath);
+
+        git_index_conflict_iterator* conflicts = nullptr;
+        git_index_entry *entries[3];
+        git_index_conflict_iterator_new(&conflicts, index);
+        while (git_index_conflict_next((const git_index_entry**)&entries[0], (const git_index_entry**)&entries[1], (const git_index_entry**)&entries[2], conflicts)
+               != GIT_ITEROVER)
+        {
+            conflict_dialog->add_file(entries[2]->path);
+        }
+        git_index_conflict_iterator_free(conflicts);
+        git_index_conflict_cleanup(index);
+
+        conflict_dialog->exec();
+    }
+
     git_reset(repo, (git_object*)latest, GIT_RESET_MIXED, NULL);
     git_repository_free(repo);
     git_remote_free(remote);
@@ -488,7 +519,7 @@ void MainWindow::migrateOldInstall() {
     git_libgit2_shutdown();
 
     deleteLegacyFiles(newRepoPath);
-    showMessage("Sector File Updated to " + getSctVersion(newRepoPath));
+    showMessage("Sector File Migrated and Updated to " + getSctVersion(newRepoPath));
 }
 
 
