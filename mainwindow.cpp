@@ -7,6 +7,8 @@ const char* REMOTE_REF = "origin";
 const char* REMOTE_BRANCH = "refs/remotes/origin/main";
 const char* LOCAL_BRANCH = "refs/heads/main";
 
+static MainWindow *g_mainWindow;
+
 std::string selectRepositoryPath() {
     // Use Qt file dialog for path selection
     QString selectedPath = QFileDialog::getExistingDirectory(nullptr, "Select Install Location", "", QFileDialog::ShowDirsOnly);
@@ -67,6 +69,28 @@ std::string getSctVersion(std::string repoPath) {
     return line;
 }
 
+int fetch_progress(
+    const git_indexer_progress *stats,
+    void *payload)
+{
+    /* Do something with network transfer progress */
+    int fetch_percent =
+        (100 * stats->received_objects) /
+        stats->total_objects;
+    int index_percent =
+        (100 * stats->indexed_objects) /
+        stats->total_objects;
+    int kbytes = stats->received_bytes / 1024;
+
+    std::stringstream progressMessage;
+    progressMessage << "Downloading " << fetch_percent << "% (" << kbytes << " kb, " << stats->received_objects << "/" << stats->total_objects << " objects)" << std::endl << std::endl;
+    progressMessage << "Indexing " << index_percent << "% (" << stats->indexed_objects << "/" << stats->total_objects << " objects)";
+
+    g_mainWindow->showMessage(progressMessage.str());
+    g_mainWindow->repaint();
+    return 0;
+}
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -90,6 +114,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(installButton, &QPushButton::released, this, &MainWindow::handleInstallButton);
     connect(updateButton, &QPushButton::released, this, &MainWindow::handleUpdateButton);
     connect(migrateOldButton, &QPushButton::released, this, &MainWindow::handleMigrateButton);
+    g_mainWindow = this;
 }
 
 MainWindow::~MainWindow()
@@ -135,6 +160,8 @@ void MainWindow::installPackage() {
     int error = git_repository_open(&repo, repoPath.c_str());
     if (error == GIT_ENOTFOUND) {
         git_clone_options clone_options = GIT_CLONE_OPTIONS_INIT;
+        clone_options.fetch_opts.callbacks.transfer_progress = fetch_progress;
+        //clone_options.fetch_opts.callbacks.payload = &d;
         repoPath += "/Hong-Kong-Sector-Package";
         showMessage("Cloning Repository...");
         repaint();
@@ -375,6 +402,7 @@ void MainWindow::migrateOldInstall() {
     newRepoPath += "/Hong-Kong-Sector-Package";
 
     git_clone_options clone_options = GIT_CLONE_OPTIONS_INIT;
+    clone_options.fetch_opts.callbacks.transfer_progress = fetch_progress;
     showMessage("Cloning Repository...");
     repaint();
     error = git_clone(&repo, SECTOR_PACKAGE, newRepoPath.c_str(), &clone_options);
