@@ -34,6 +34,12 @@ public:
     void installPackage();
     void migrateOldInstall();
 
+    void setProgressBarText(std::string message);
+    void setProgressBarValue(int value);
+    void setProgressBarMax(int value);
+    void setProgressBarMin(int value);
+
+
 private:
     Ui::MainWindow *ui;
     QLabel *textLabel;

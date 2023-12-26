@@ -82,11 +82,19 @@ int fetch_progress(
         stats->total_objects;
     int kbytes = stats->received_bytes / 1024;
 
-    std::stringstream progressMessage;
-    progressMessage << "Downloading " << fetch_percent << "% (" << kbytes << " kb, " << stats->received_objects << "/" << stats->total_objects << " objects)" << std::endl << std::endl;
-    progressMessage << "Indexing " << index_percent << "% (" << stats->indexed_objects << "/" << stats->total_objects << " objects)";
+    g_mainWindow->setProgressBarMax(stats->total_objects);
+    g_mainWindow->setProgressBarMin(0);
 
-    g_mainWindow->showMessage(progressMessage.str());
+    std::stringstream progressMessage;
+    if(fetch_percent == 100) {
+       progressMessage << "Indexing " << index_percent << "% (" << stats->indexed_objects << "/" << stats->total_objects << " objects)";
+       g_mainWindow->setProgressBarValue(stats->indexed_objects);
+    } else {
+       progressMessage << "Downloading " << fetch_percent << "% (" << kbytes << " kb, " << stats->received_objects << "/" << stats->total_objects << " objects)" << std::endl << std::endl;
+       g_mainWindow->setProgressBarValue(stats->received_objects);
+    }
+
+    g_mainWindow->setProgressBarText(progressMessage.str());
     g_mainWindow->repaint();
     return 0;
 }
@@ -110,6 +118,9 @@ MainWindow::MainWindow(QWidget *parent)
     QPixmap logoScaled = logo.scaled(300, 300, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     ui->logoLabel->setAlignment(Qt::AlignCenter);
     ui->logoLabel->setPixmap(logoScaled);
+
+    ui->progressBar->setVisible(false);
+    ui->progressBar->setAlignment(Qt::AlignCenter);
 
     connect(installButton, &QPushButton::released, this, &MainWindow::handleInstallButton);
     connect(updateButton, &QPushButton::released, this, &MainWindow::handleUpdateButton);
@@ -164,6 +175,8 @@ void MainWindow::installPackage() {
         //clone_options.fetch_opts.callbacks.payload = &d;
         repoPath += "/Hong-Kong-Sector-Package";
         showMessage("Cloning Repository...");
+        ui->progressBar->reset();
+        ui->progressBar->setVisible(true);
         repaint();
         error = git_clone(&repo, SECTOR_PACKAGE, repoPath.c_str(), &clone_options);
         if (error != 0) {
@@ -171,11 +184,12 @@ void MainWindow::installPackage() {
             git_libgit2_shutdown();
             return;
         }
+        ui->progressBar->setVisible(false);
 
         git_repository_free(repo);
 
         deleteLegacyFiles(repoPath);
-        showMessage("Hong Kong Sector Package Successfully Installed!\n\nVersion " + getSctVersion(repoPath));
+        showMessage("Hong Kong Sector Package Successfully Installed (" + getSctVersion(repoPath) + ")");
     } else {
         showMessage("Folder already contains Hong Kong Sector Package");
     }
@@ -275,6 +289,11 @@ void MainWindow::updatePackage() {
     showMessage("Checking for Updates...");
     repaint();
     git_fetch_options fetch_options = GIT_FETCH_OPTIONS_INIT;
+    fetch_options.callbacks.transfer_progress = fetch_progress;
+    ui->progressBar->reset();
+    ui->progressBar->setVisible(true);
+    repaint();
+
     error = git_remote_fetch(remote, nullptr, &fetch_options, "pull");
     if (error != 0) {
         showMessage("Error pulling changes: ", std::string(giterr_last()->message));
@@ -307,6 +326,9 @@ void MainWindow::updatePackage() {
         git_libgit2_shutdown();
     }
     git_object_free(main_obj);
+
+    ui->progressBar->setVisible(false);
+    repaint();
 
     if(!git_oid_equal(&fetch_head_id, &head_id)) {
         // Differences found, perform fast forward
@@ -403,6 +425,9 @@ void MainWindow::migrateOldInstall() {
 
     git_clone_options clone_options = GIT_CLONE_OPTIONS_INIT;
     clone_options.fetch_opts.callbacks.transfer_progress = fetch_progress;
+    ui->progressBar->reset();
+    ui->progressBar->setVisible(true);
+    repaint();
     showMessage("Cloning Repository...");
     repaint();
     error = git_clone(&repo, SECTOR_PACKAGE, newRepoPath.c_str(), &clone_options);
@@ -411,6 +436,9 @@ void MainWindow::migrateOldInstall() {
         git_libgit2_shutdown();
         return;
     }
+
+    ui->progressBar->setVisible(false);
+    repaint();
 
     error = git_repository_open(&repo, newRepoPath.c_str());
     if (error != 0) {
@@ -503,6 +531,11 @@ void MainWindow::migrateOldInstall() {
 
     //perform fastforward to update
     git_fetch_options fetch_options = GIT_FETCH_OPTIONS_INIT;
+    fetch_options.callbacks.transfer_progress = fetch_progress;
+    ui->progressBar->reset();
+    ui->progressBar->setVisible(true);
+    repaint();
+
     git_remote_fetch(remote, nullptr, &fetch_options, "pull");
     git_reference * head_ref = nullptr;
     git_reference_lookup(&head_ref, repo, LOCAL_BRANCH);
@@ -512,6 +545,9 @@ void MainWindow::migrateOldInstall() {
     git_reference_name_to_id(&fetch_head_id, repo, "FETCH_HEAD");
     git_commit_lookup(&latest, repo, &fetch_head_id);
     git_reset(repo, (git_object*)latest, GIT_RESET_HARD, NULL);
+
+    ui->progressBar->setVisible(false);
+    repaint();
 
     //re apply custom settings
     git_stash_pop(repo, 0, &apply_options);
@@ -585,4 +621,21 @@ void MainWindow::handleMigrateButton() {
     installButton->setEnabled(true);
     updateButton->setEnabled(true);
     migrateOldButton->setEnabled(true);
+}
+
+void MainWindow::setProgressBarMax(int value) {
+    ui->progressBar->setMaximum(value);
+}
+
+void MainWindow::setProgressBarMin(int value) {
+    ui->progressBar->setMinimum(value);
+}
+
+void MainWindow::setProgressBarValue(int value) {
+    ui->progressBar->setValue(value);
+}
+
+void MainWindow::setProgressBarText(std::string message) {
+    QString progress = QString::fromStdString(message);
+    ui->progressBar->setFormat(progress);
 }
