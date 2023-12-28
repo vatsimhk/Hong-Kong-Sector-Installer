@@ -170,6 +170,14 @@ void MainWindow::installPackage() {
     // Open the repository or clone if it doesn't exist
     git_repository *repo = nullptr;
 
+    std::ifstream checkFile(repoPath + "/Data/Sector/Hong-Kong-Sector-File.sct");
+    if(checkFile.is_open()) {
+       checkFile.close();
+       git_libgit2_shutdown();
+       showMessage("Folder already contains Hong Kong Sector Package");
+       return;
+    }
+
     int error = git_repository_open(&repo, repoPath.c_str());
     if (error == GIT_ENOTFOUND) {
         git_clone_options clone_options = GIT_CLONE_OPTIONS_INIT;
@@ -184,6 +192,7 @@ void MainWindow::installPackage() {
         if (error != 0) {
             showMessage("Error cloning repository: ", std::string(giterr_last()->message));
             git_libgit2_shutdown();
+            ui->progressBar->setVisible(false);
             return;
         }
         ui->progressBar->setVisible(false);
@@ -435,6 +444,7 @@ void MainWindow::migrateOldInstall(std::string repoPath) {
     if (error != 0) {
         showMessage("Error cloning repository: ", std::string(giterr_last()->message));
         git_libgit2_shutdown();
+        ui->progressBar->setVisible(false);
         return;
     }
 
