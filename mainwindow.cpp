@@ -107,7 +107,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Create a layout to manage widgets
 
-    this->setFixedSize(500,500);
+    this->setFixedSize(500,450);
 
     textLabel = ui->messageBox;
     errorLabel = ui->errorBox;
@@ -115,8 +115,8 @@ MainWindow::MainWindow(QWidget *parent)
     updateButton = ui->updateButton;
     QPixmap logo(":/images/hkvacc-blue.png");
     QPixmap logoScaled = logo.scaled(300, 300, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    ui->logoLabel->setAlignment(Qt::AlignCenter);
     ui->logoLabel->setPixmap(logoScaled);
+    ui->logoLabel->setAlignment(Qt::AlignCenter);
 
     ui->progressBar->setVisible(false);
     ui->progressBar->setAlignment(Qt::AlignCenter);
