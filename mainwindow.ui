@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>521</width>
-    <height>558</height>
+    <width>495</width>
+    <height>487</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,6 +17,18 @@
    <layout class="QVBoxLayout" name="verticalLayout_2">
     <item>
      <widget class="QLabel" name="titleLabel">
+      <property name="maximumSize">
+       <size>
+        <width>16777215</width>
+        <height>80</height>
+       </size>
+      </property>
+      <property name="baseSize">
+       <size>
+        <width>0</width>
+        <height>0</height>
+       </size>
+      </property>
       <property name="styleSheet">
        <string notr="true">font: 36pt &quot;Fixel Text&quot;;
 font-size: bold;
@@ -29,13 +41,19 @@ color: rgb(0, 0, 0);</string>
     </item>
     <item>
      <widget class="QWidget" name="logo" native="true">
+      <property name="maximumSize">
+       <size>
+        <width>16777215</width>
+        <height>200</height>
+       </size>
+      </property>
       <widget class="QLabel" name="logoLabel">
        <property name="geometry">
         <rect>
          <x>0</x>
-         <y>1</y>
-         <width>486</width>
-         <height>91</height>
+         <y>0</y>
+         <width>471</width>
+         <height>121</height>
         </rect>
        </property>
        <property name="text">
@@ -51,8 +69,8 @@ color: rgb(0, 0, 0);</string>
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>486</width>
-         <height>53</height>
+         <width>471</width>
+         <height>71</height>
         </rect>
        </property>
        <property name="styleSheet">
@@ -63,14 +81,17 @@ text-align: center;</string>
        <property name="text">
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:11pt;&quot;&gt;Select an option below&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
       </widget>
       <widget class="QLabel" name="errorBox">
        <property name="geometry">
         <rect>
-         <x>8</x>
-         <y>49</y>
+         <x>0</x>
+         <y>60</y>
          <width>471</width>
-         <height>41</height>
+         <height>51</height>
         </rect>
        </property>
        <property name="styleSheet">
@@ -81,27 +102,69 @@ font: 9pt &quot;Fixel Text&quot;;</string>
        <property name="text">
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
       </widget>
      </widget>
     </item>
     <item>
-     <widget class="QProgressBar" name="progressBar">
+     <widget class="QWidget" name="widget" native="true">
+      <property name="maximumSize">
+       <size>
+        <width>16777215</width>
+        <height>30</height>
+       </size>
+      </property>
       <property name="styleSheet">
-       <string notr="true">QProgressBar::chunk { background-color: rgb(36,131,179); };
+       <string notr="true"/>
+      </property>
+      <widget class="QProgressBar" name="progressBar">
+       <property name="geometry">
+        <rect>
+         <x>30</x>
+         <y>0</y>
+         <width>420</width>
+         <height>21</height>
+        </rect>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>420</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QProgressBar::chunk { background-color: rgb(36,131,179); };
 QProgressBar { color: black; }
-text-align: center
-</string>
-      </property>
-      <property name="value">
-       <number>24</number>
-      </property>
-      <property name="format">
-       <string>%p%</string>
-      </property>
+text-align: center;</string>
+       </property>
+       <property name="value">
+        <number>24</number>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+       <property name="format">
+        <string>%p%</string>
+       </property>
+      </widget>
      </widget>
     </item>
     <item>
      <widget class="QWidget" name="buttons" native="true">
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>0</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>16777215</width>
+        <height>80</height>
+       </size>
+      </property>
       <property name="autoFillBackground">
        <bool>false</bool>
       </property>
@@ -140,28 +203,6 @@ color: rgb(0,0,0);</string>
          </property>
          <property name="text">
           <string>Update Sector Package</string>
-         </property>
-         <property name="default">
-          <bool>true</bool>
-         </property>
-         <property name="flat">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="migrateButton">
-         <property name="mouseTracking">
-          <bool>false</bool>
-         </property>
-         <property name="styleSheet">
-          <string notr="true">QPushButton:pressed { background-color: rgb(36,131,179); }</string>
-         </property>
-         <property name="text">
-          <string>Migrate Old Installation</string>
-         </property>
-         <property name="autoDefault">
-          <bool>false</bool>
          </property>
          <property name="default">
           <bool>true</bool>

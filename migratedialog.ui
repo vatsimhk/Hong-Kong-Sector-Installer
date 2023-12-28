@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>mergeConflictDialog</class>
- <widget class="QDialog" name="mergeConflictDialog">
+ <class>migrateDialog</class>
+ <widget class="QDialog" name="migrateDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>408</width>
-    <height>344</height>
+    <width>404</width>
+    <height>337</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Hong Kong Sector Package Installer</string>
+   <string>Dialog</string>
   </property>
   <widget class="QDialogButtonBox" name="buttonBox">
    <property name="geometry">
@@ -22,16 +22,11 @@
      <height>32</height>
     </rect>
    </property>
-   <property name="font">
-    <font>
-     <family>Fixel Text</family>
-    </font>
-   </property>
    <property name="orientation">
     <enum>Qt::Horizontal</enum>
    </property>
    <property name="standardButtons">
-    <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+    <set>QDialogButtonBox::Ok</set>
    </property>
   </widget>
   <widget class="QWidget" name="widget" native="true">
@@ -40,19 +35,19 @@
      <x>30</x>
      <y>70</y>
      <width>351</width>
-     <height>201</height>
+     <height>191</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout_4">
     <item>
-     <widget class="QLabel" name="label_2">
+     <widget class="QLabel" name="label_1">
       <property name="font">
        <font>
         <family>Fixel Text</family>
        </font>
       </property>
       <property name="text">
-       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:10pt;&quot;&gt;Merge conflicts were detected in the following files:&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;An old installation was detected (You are running the installer for the first time). &lt;/p&gt;&lt;p&gt;Your sector package will now be migrated to a git tracked version so you can receive automatic updates. A backup of your current sector package will also be created.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
       </property>
       <property name="wordWrap">
        <bool>true</bool>
@@ -60,7 +55,7 @@
      </widget>
     </item>
     <item>
-     <widget class="QLabel" name="file_list_label">
+     <widget class="QLabel" name="label_dirs">
       <property name="font">
        <font>
         <family>Fixel Text</family>
@@ -74,32 +69,7 @@
       </property>
      </widget>
     </item>
-    <item>
-     <widget class="QLabel" name="label_3">
-      <property name="font">
-       <font>
-        <family>Fixel Text</family>
-       </font>
-      </property>
-      <property name="text">
-       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:10pt;&quot;&gt;The installer will automatically attempt to resolve them.&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-size:10pt;&quot;&gt;Some settings may be overwritten.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-      </property>
-      <property name="wordWrap">
-       <bool>true</bool>
-      </property>
-     </widget>
-    </item>
    </layout>
-  </widget>
-  <widget class="QWidget" name="widget_2" native="true">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>10</y>
-     <width>120</width>
-     <height>80</height>
-    </rect>
-   </property>
   </widget>
   <widget class="QLabel" name="label">
    <property name="geometry">
@@ -116,7 +86,7 @@
     </font>
    </property>
    <property name="text">
-    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:14pt; font-weight:700;&quot;&gt;Merge Conflicts Detected&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:14pt; font-weight:700;&quot;&gt;Old Installation Detected&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
    </property>
   </widget>
  </widget>
@@ -125,7 +95,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>accepted()</signal>
-   <receiver>mergeConflictDialog</receiver>
+   <receiver>migrateDialog</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -141,7 +111,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>mergeConflictDialog</receiver>
+   <receiver>migrateDialog</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">

@@ -13,6 +13,7 @@
 #include <fstream>
 #include <sstream>
 #include "mergeconflictdialog.h"
+#include "migratedialog.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -29,10 +30,9 @@ public:
     void showMessage(const std::string& message, const std::string& errorMessage);
     void handleUpdateButton();
     void handleInstallButton();
-    void handleMigrateButton();
     void updatePackage();
     void installPackage();
-    void migrateOldInstall();
+    void migrateOldInstall(std::string repoPath);
 
     void setProgressBarText(std::string message);
     void setProgressBarValue(int value);
@@ -46,6 +46,5 @@ private:
     QLabel *errorLabel;
     QPushButton *installButton;
     QPushButton *updateButton;
-    QPushButton *migrateOldButton;
 };
 #endif // MAINWINDOW_H

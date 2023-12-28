@@ -11,15 +11,18 @@ CONFIG += c++17
 SOURCES += \
     main.cpp \
     mainwindow.cpp \
-    mergeconflictdialog.cpp
+    mergeconflictdialog.cpp \
+    migratedialog.cpp
 
 HEADERS += \
     mainwindow.h \
-    mergeconflictdialog.h
+    mergeconflictdialog.h \
+    migratedialog.h
 
 FORMS += \
     mainwindow.ui \
-    mergeconflictdialog.ui
+    mergeconflictdialog.ui \
+    migratedialog.ui
 
 INCLUDEPATH += "C:/Users/Justin Wai/source/repos/libgit2-1.7.1/build/include"
 

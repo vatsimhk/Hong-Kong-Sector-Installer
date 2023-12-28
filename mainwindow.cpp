@@ -107,12 +107,11 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Create a layout to manage widgets
 
-    this->setFixedSize(500,450);
+    this->setFixedSize(500,500);
 
     textLabel = ui->messageBox;
     errorLabel = ui->errorBox;
     installButton = ui->installButton;
-    migrateOldButton = ui->migrateButton;
     updateButton = ui->updateButton;
     QPixmap logo(":/images/hkvacc-blue.png");
     QPixmap logoScaled = logo.scaled(300, 300, Qt::KeepAspectRatio, Qt::SmoothTransformation);
@@ -122,9 +121,12 @@ MainWindow::MainWindow(QWidget *parent)
     ui->progressBar->setVisible(false);
     ui->progressBar->setAlignment(Qt::AlignCenter);
 
+    ui->messageBox->setAlignment(Qt::AlignCenter);
+    ui->errorBox->setAlignment(Qt::AlignCenter);
+
     connect(installButton, &QPushButton::released, this, &MainWindow::handleInstallButton);
     connect(updateButton, &QPushButton::released, this, &MainWindow::handleUpdateButton);
-    connect(migrateOldButton, &QPushButton::released, this, &MainWindow::handleMigrateButton);
+
     g_mainWindow = this;
 }
 
@@ -214,8 +216,8 @@ void MainWindow::updatePackage() {
         std::ifstream checkFile(repoPath + "/Data/Sector/Hong-Kong-Sector-File.sct");
         if(checkFile.is_open()) {
             checkFile.close();
-            showMessage("Old Installation detected.\n\nMigrate your installation using the Migrate button below.");
             git_libgit2_shutdown();
+            migrateOldInstall(repoPath);
             return;
         }
         showMessage("Error updating Package: ", std::string(giterr_last()->message));
@@ -389,19 +391,14 @@ void MainWindow::updatePackage() {
     git_libgit2_shutdown();
 }
 
-void MainWindow::migrateOldInstall() {
-
-    // Select the repository path
-    std::string repoPath = selectRepositoryPath();
-    if (repoPath == "") return;
+void MainWindow::migrateOldInstall(std::string repoPath) {
 
     // Initialize the library
     git_libgit2_init();
-
-    // Open the repository or clone if it doesn't exist
     git_repository *repo = nullptr;
+    int error;
 
-    int error = git_repository_open(&repo, repoPath.c_str());
+    /*int error = git_repository_open(&repo, repoPath.c_str());
     if(error == 0) {
         showMessage("New install detected. Use the Update button instead");
 
@@ -416,12 +413,16 @@ void MainWindow::migrateOldInstall() {
         git_libgit2_shutdown();
         return;
     }
-    checkFile.close();
+    checkFile.close();*/
 
     std::string newRepoPath = repoPath.substr(0, repoPath.std::string::find_last_of("\\/"));
     std::filesystem::rename(repoPath, newRepoPath + "/Hong-Kong-Sector (Old Backup)");
     repoPath = newRepoPath + "/Hong-Kong-Sector (Old Backup)";
     newRepoPath += "/Hong-Kong-Sector-Package";
+
+    migrateDialog* m_dialog = new migrateDialog;
+    m_dialog->set_repo_paths(newRepoPath, repoPath);
+    m_dialog->exec();
 
     git_clone_options clone_options = GIT_CLONE_OPTIONS_INIT;
     clone_options.fetch_opts.callbacks.transfer_progress = fetch_progress;
@@ -590,37 +591,21 @@ void MainWindow::migrateOldInstall() {
 void MainWindow::handleInstallButton() {
     installButton->setEnabled(false);
     updateButton->setEnabled(false);
-    migrateOldButton->setEnabled(false);
 
     installPackage();
 
     installButton->setEnabled(true);
     updateButton->setEnabled(true);
-    migrateOldButton->setEnabled(true);
 }
 
 void MainWindow::handleUpdateButton() {
     installButton->setEnabled(false);
     updateButton->setEnabled(false);
-    migrateOldButton->setEnabled(false);
 
     updatePackage();
 
     installButton->setEnabled(true);
     updateButton->setEnabled(true);
-    migrateOldButton->setEnabled(true);
-}
-
-void MainWindow::handleMigrateButton() {
-    installButton->setEnabled(false);
-    updateButton->setEnabled(false);
-    migrateOldButton->setEnabled(false);
-
-    migrateOldInstall();
-
-    installButton->setEnabled(true);
-    updateButton->setEnabled(true);
-    migrateOldButton->setEnabled(true);
 }
 
 void MainWindow::setProgressBarMax(int value) {
