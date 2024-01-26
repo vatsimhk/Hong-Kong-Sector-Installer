@@ -20,7 +20,7 @@ std::vector<std::pair<std::string, std::string>> colourThemePicker::readReplacem
     std::vector<std::pair<std::string, std::string>> replacements;
 
     if (!inputFile.is_open()) {
-        std::cerr << "Error opening replacement file: " << filename << std::endl;
+        error_message = "Cannot find ColourThemes.txt file. Check that the file has not been moved or deleted, or re-installation may be required.";
         return replacements;
     }
 
@@ -37,6 +37,12 @@ std::vector<std::pair<std::string, std::string>> colourThemePicker::readReplacem
                 insideCorrectTheme = true;
             }
             continue;
+        }
+
+        if (line.find("THEME BEGIN") != std::string::npos) {
+            //bad news, another theme began, so an END line is missing
+            insideReplacementSection = true;
+            break;
         }
 
         if (line.find(selectedTheme + " THEME END") != std::string::npos) {
@@ -68,6 +74,12 @@ std::vector<std::pair<std::string, std::string>> colourThemePicker::readReplacem
     }
 
     inputFile.close();
+
+    if (insideReplacementSection) {
+        error_message = "Missing END line in ColourThemes.txt, unable to parse colour themes. Re-installation may be required.";
+        std::vector<std::pair<std::string, std::string>> empty_vector;
+        return empty_vector;
+    }
     return replacements;
 }
 
@@ -77,7 +89,7 @@ void colourThemePicker::replaceBetweenMarkers(const std::string& filename,
 
     std::ifstream inputFile(filename);
     if (!inputFile.is_open()) {
-        std::cerr << "Error opening file: " << filename << std::endl;
+        error_message = "Unable to locate " + filename + " . Check that the file has not been moved or deleted.";
         return;
     }
 
@@ -103,15 +115,11 @@ void colourThemePicker::replaceBetweenMarkers(const std::string& filename,
     inputFile.close();
 
     if (insideMarkerSection) {
-        std::cerr << "Missing END line!" << std::endl;
+        error_message = "Missing COLOUR THEME END line in " + filename + ". Re-installation may be required.";
         return;
     }
 
     std::ofstream outputFile(filename, std::ios::trunc);
-    if (!outputFile.is_open()) {
-        std::cerr << "Error opening file for writing: " << filename << std::endl;
-        return;
-    }
 
     outputFile << buffer.str();
     outputFile.close();
@@ -126,6 +134,10 @@ void colourThemePicker::set_repo_path(std::string path) {
 
 std::string colourThemePicker::get_selected_theme() {
     return selected_theme;
+}
+
+std::string colourThemePicker::get_error_message() {
+    return error_message;
 }
 
 void colourThemePicker::on_button_default_clicked()
@@ -166,6 +178,13 @@ void colourThemePicker::on_buttonBox_accepted()
                               "COLOUR THEME END");
     }
 
+    this->close();
+}
+
+
+void colourThemePicker::on_buttonBox_rejected()
+{
+    selected_theme = "";
     this->close();
 }
 

@@ -34,6 +34,7 @@ public:
     void handleColourThemeButton();
     void updatePackage();
     void installPackage();
+    void changeColourTheme();
     void migrateOldInstall(std::string repoPath);
 
     void setProgressBarText(std::string message);

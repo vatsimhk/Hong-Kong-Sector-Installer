@@ -599,6 +599,32 @@ void MainWindow::migrateOldInstall(std::string repoPath) {
     showMessage("Sector File Migrated and Updated to " + getSctVersion(newRepoPath));
 }
 
+void MainWindow::changeColourTheme() {
+    std::string repoPath = selectRepositoryPath();
+    if (repoPath == "") return;
+
+    git_libgit2_init();
+    git_repository *repo = nullptr;
+
+    int error = git_repository_open(&repo, repoPath.c_str());
+    if (error != 0) {
+        showMessage("Sector Package not found in this folder");
+    } else {
+        colourThemePicker* colour_theme_picker = new colourThemePicker;
+        colour_theme_picker->set_repo_path(repoPath);
+        colour_theme_picker->exec();
+
+        if(colour_theme_picker->get_selected_theme() != "") {
+            showMessage("Colour theme updated to " + colour_theme_picker->get_selected_theme());
+        }
+        if(colour_theme_picker->get_error_message() != "") {
+            showMessage("Error changing colour theme:", colour_theme_picker->get_error_message());
+        }
+        delete colour_theme_picker;
+    }
+
+    git_libgit2_shutdown();
+}
 
 void MainWindow::handleInstallButton() {
     installButton->setEnabled(false);
@@ -629,26 +655,8 @@ void MainWindow::handleColourThemeButton() {
     updateButton->setEnabled(false);
     colourThemeButton->setEnabled(false);
 
-    // Select the repository path
-    std::string repoPath = selectRepositoryPath();
-    if (repoPath == "") return;
+    changeColourTheme();
 
-    git_libgit2_init();
-    git_repository *repo = nullptr;
-
-    int error = git_repository_open(&repo, repoPath.c_str());
-    if (error != 0) {
-        showMessage("Sector Package not found in this folder");
-    } else {
-        colourThemePicker* colour_theme_picker = new colourThemePicker;
-        colour_theme_picker->set_repo_path(repoPath);
-        colour_theme_picker->exec();
-
-        showMessage("Colour theme updated to " + colour_theme_picker->get_selected_theme());
-        delete colour_theme_picker;
-    }
-
-    git_libgit2_shutdown();
     installButton->setEnabled(true);
     updateButton->setEnabled(true);
     colourThemeButton->setEnabled(true);

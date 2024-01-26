@@ -40,6 +40,7 @@ public:
     void set_repo_path(std::string path);
 
     std::string get_selected_theme();
+    std::string get_error_message();
 
 private slots:
     void on_button_default_clicked();
@@ -50,10 +51,13 @@ private slots:
 
     void on_buttonBox_accepted();
 
+    void on_buttonBox_rejected();
+
 private:
     Ui::colourThemePicker *ui;
     std::string repo_path;
     std::string selected_theme;
+    std::string error_message;
 };
 
 #endif // COLOURTHEMEPICKER_H
