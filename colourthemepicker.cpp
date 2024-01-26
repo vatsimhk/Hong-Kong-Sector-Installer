@@ -138,7 +138,6 @@ void colourThemePicker::on_button_black_clicked()
     selected_theme = "BLACK";
 }
 
-
 void colourThemePicker::on_button_grey_clicked()
 {
     selected_theme = "GREY";
