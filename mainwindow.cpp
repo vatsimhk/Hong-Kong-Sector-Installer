@@ -113,6 +113,7 @@ MainWindow::MainWindow(QWidget *parent)
     errorLabel = ui->errorBox;
     installButton = ui->installButton;
     updateButton = ui->updateButton;
+    colourThemeButton = ui->colourThemeButton;
     QPixmap logo(":/images/hkvacc-blue.png");
     QPixmap logoScaled = logo.scaled(300, 300, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     ui->logoLabel->setPixmap(logoScaled);
@@ -126,6 +127,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(installButton, &QPushButton::released, this, &MainWindow::handleInstallButton);
     connect(updateButton, &QPushButton::released, this, &MainWindow::handleUpdateButton);
+    connect(colourThemeButton, &QPushButton::released, this, &MainWindow::handleColourThemeButton);
 
     g_mainWindow = this;
 }
@@ -601,21 +603,55 @@ void MainWindow::migrateOldInstall(std::string repoPath) {
 void MainWindow::handleInstallButton() {
     installButton->setEnabled(false);
     updateButton->setEnabled(false);
+    colourThemeButton->setEnabled(false);
 
     installPackage();
 
     installButton->setEnabled(true);
     updateButton->setEnabled(true);
+    colourThemeButton->setEnabled(true);
 }
 
 void MainWindow::handleUpdateButton() {
     installButton->setEnabled(false);
     updateButton->setEnabled(false);
+    colourThemeButton->setEnabled(false);
 
     updatePackage();
 
     installButton->setEnabled(true);
     updateButton->setEnabled(true);
+    colourThemeButton->setEnabled(true);
+}
+
+void MainWindow::handleColourThemeButton() {
+    installButton->setEnabled(false);
+    updateButton->setEnabled(false);
+    colourThemeButton->setEnabled(false);
+
+    // Select the repository path
+    std::string repoPath = selectRepositoryPath();
+    if (repoPath == "") return;
+
+    git_libgit2_init();
+    git_repository *repo = nullptr;
+
+    int error = git_repository_open(&repo, repoPath.c_str());
+    if (error != 0) {
+        showMessage("Sector Package not found in this folder");
+    } else {
+        colourThemePicker* colour_theme_picker = new colourThemePicker;
+        colour_theme_picker->set_repo_path(repoPath);
+        colour_theme_picker->exec();
+
+        showMessage("Colour theme updated to " + colour_theme_picker->get_selected_theme());
+        delete colour_theme_picker;
+    }
+
+    git_libgit2_shutdown();
+    installButton->setEnabled(true);
+    updateButton->setEnabled(true);
+    colourThemeButton->setEnabled(true);
 }
 
 void MainWindow::setProgressBarMax(int value) {

@@ -14,6 +14,7 @@
 #include <sstream>
 #include "mergeconflictdialog.h"
 #include "migratedialog.h"
+#include "colourthemepicker.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -30,6 +31,7 @@ public:
     void showMessage(const std::string& message, const std::string& errorMessage);
     void handleUpdateButton();
     void handleInstallButton();
+    void handleColourThemeButton();
     void updatePackage();
     void installPackage();
     void migrateOldInstall(std::string repoPath);
@@ -46,5 +48,6 @@ private:
     QLabel *errorLabel;
     QPushButton *installButton;
     QPushButton *updateButton;
+    QPushButton *colourThemeButton;
 };
 #endif // MAINWINDOW_H

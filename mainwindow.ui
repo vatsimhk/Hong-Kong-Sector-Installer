@@ -164,7 +164,7 @@ text-align: center;</string>
       <property name="maximumSize">
        <size>
         <width>16777215</width>
-        <height>80</height>
+        <height>90</height>
        </size>
       </property>
       <property name="autoFillBackground">
@@ -205,6 +205,22 @@ color: rgb(0,0,0);</string>
          </property>
          <property name="text">
           <string>Update Sector Package</string>
+         </property>
+         <property name="default">
+          <bool>true</bool>
+         </property>
+         <property name="flat">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="colourThemeButton">
+         <property name="styleSheet">
+          <string notr="true">QPushButton:pressed { background-color: rgb(36,131,179); }</string>
+         </property>
+         <property name="text">
+          <string>Change Colour Theme</string>
          </property>
          <property name="default">
           <bool>true</bool>

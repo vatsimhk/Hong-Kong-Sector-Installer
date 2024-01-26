@@ -9,17 +9,20 @@ CONFIG += c++17
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    colourthemepicker.cpp \
     main.cpp \
     mainwindow.cpp \
     mergeconflictdialog.cpp \
     migratedialog.cpp
 
 HEADERS += \
+    colourthemepicker.h \
     mainwindow.h \
     mergeconflictdialog.h \
     migratedialog.h
 
 FORMS += \
+    colourthemepicker.ui \
     mainwindow.ui \
     mergeconflictdialog.ui \
     migratedialog.ui
