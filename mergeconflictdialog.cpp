@@ -47,7 +47,8 @@ void mergeConflictDialog::resolveMergeConflicts() {
             return;
         }
 
-        bool keep_upstream = filename.find(".asr") == std::string::npos && filename.find("Settings") == std::string::npos && filename.find(".prf") == std::string::npos;
+        //bool keep_upstream = filename.find(".asr") == std::string::npos && filename.find("Settings") == std::string::npos && filename.find(".prf") == std::string::npos;
+        bool keep_upstream = true;
 
         std::stringstream buffer;
         std::string line;
