@@ -29,12 +29,10 @@ public:
     ~MainWindow();
     void showMessage(const std::string& message);
     void showMessage(const std::string& message, const std::string& errorMessage);
-    void handleUpdateButton();
-    void handleInstallButton();
-    void handleColourThemeButton();
     void updatePackage();
     void installPackage();
     void changeColourTheme();
+    void repairPackage();
     void migrateOldInstall(std::string repoPath);
 
     void setProgressBarText(std::string message);
@@ -42,6 +40,18 @@ public:
     void setProgressBarMax(int value);
     void setProgressBarMin(int value);
 
+    void enableAllButtons();
+    void disableAllButtons();
+
+
+private slots:
+    void on_installButton_released();
+
+    void on_updateButton_released();
+
+    void on_repairButton_released();
+
+    void on_colourThemeButton_released();
 
 private:
     Ui::MainWindow *ui;
@@ -49,6 +59,7 @@ private:
     QLabel *errorLabel;
     QPushButton *installButton;
     QPushButton *updateButton;
+    QPushButton *repairButton;
     QPushButton *colourThemeButton;
 };
 #endif // MAINWINDOW_H

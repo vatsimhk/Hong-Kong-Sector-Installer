@@ -106,16 +106,14 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
     // Create a layout to manage widgets
-
-    this->setFixedSize(500,450);
-
     textLabel = ui->messageBox;
     errorLabel = ui->errorBox;
     installButton = ui->installButton;
     updateButton = ui->updateButton;
     colourThemeButton = ui->colourThemeButton;
+    repairButton = ui->repairButton;
     QPixmap logo(":/images/hkvacc-blue.png");
-    QPixmap logoScaled = logo.scaled(300, 300, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    QPixmap logoScaled = logo.scaled(380, 380, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     ui->logoLabel->setPixmap(logoScaled);
     ui->logoLabel->setAlignment(Qt::AlignCenter);
 
@@ -124,10 +122,6 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->messageBox->setAlignment(Qt::AlignCenter);
     ui->errorBox->setAlignment(Qt::AlignCenter);
-
-    connect(installButton, &QPushButton::released, this, &MainWindow::handleInstallButton);
-    connect(updateButton, &QPushButton::released, this, &MainWindow::handleUpdateButton);
-    connect(colourThemeButton, &QPushButton::released, this, &MainWindow::handleColourThemeButton);
 
     g_mainWindow = this;
 }
@@ -329,6 +323,8 @@ void MainWindow::updatePackage() {
     git_checkout_options checkout_options = GIT_CHECKOUT_OPTIONS_INIT;
     checkout_options.checkout_strategy = GIT_CHECKOUT_FORCE;
     error = git_checkout_tree(repo, main_obj, &checkout_options);
+    //MOVE HEAD TO DESIRED BRANCH
+    error = git_repository_set_head(repo, LOCAL_BRANCH);
     if(error != 0) {
         showMessage("error checking out main branch: ", std::string(giterr_last()->message));
         git_object_free(main_obj);
@@ -599,6 +595,10 @@ void MainWindow::migrateOldInstall(std::string repoPath) {
     showMessage("Sector File Migrated and Updated to " + getSctVersion(newRepoPath));
 }
 
+void MainWindow::repairPackage() {
+
+}
+
 void MainWindow::changeColourTheme() {
     std::string repoPath = selectRepositoryPath();
     if (repoPath == "") return;
@@ -626,42 +626,6 @@ void MainWindow::changeColourTheme() {
     git_libgit2_shutdown();
 }
 
-void MainWindow::handleInstallButton() {
-    installButton->setEnabled(false);
-    updateButton->setEnabled(false);
-    colourThemeButton->setEnabled(false);
-
-    installPackage();
-
-    installButton->setEnabled(true);
-    updateButton->setEnabled(true);
-    colourThemeButton->setEnabled(true);
-}
-
-void MainWindow::handleUpdateButton() {
-    installButton->setEnabled(false);
-    updateButton->setEnabled(false);
-    colourThemeButton->setEnabled(false);
-
-    updatePackage();
-
-    installButton->setEnabled(true);
-    updateButton->setEnabled(true);
-    colourThemeButton->setEnabled(true);
-}
-
-void MainWindow::handleColourThemeButton() {
-    installButton->setEnabled(false);
-    updateButton->setEnabled(false);
-    colourThemeButton->setEnabled(false);
-
-    changeColourTheme();
-
-    installButton->setEnabled(true);
-    updateButton->setEnabled(true);
-    colourThemeButton->setEnabled(true);
-}
-
 void MainWindow::setProgressBarMax(int value) {
     ui->progressBar->setMaximum(value);
 }
@@ -678,3 +642,49 @@ void MainWindow::setProgressBarText(std::string message) {
     QString progress = QString::fromStdString(message);
     ui->progressBar->setFormat(progress);
 }
+
+void MainWindow::enableAllButtons() {
+    installButton->setEnabled(true);
+    updateButton->setEnabled(true);
+    colourThemeButton->setEnabled(true);
+    repairButton->setEnabled(true);
+}
+
+void MainWindow::disableAllButtons() {
+    installButton->setEnabled(false);
+    updateButton->setEnabled(false);
+    colourThemeButton->setEnabled(false);
+    repairButton->setEnabled(false);
+}
+
+void MainWindow::on_installButton_released()
+{
+    disableAllButtons();
+    installPackage();
+    enableAllButtons();
+}
+
+
+void MainWindow::on_updateButton_released()
+{
+    disableAllButtons();
+    updatePackage();
+    enableAllButtons();
+}
+
+
+void MainWindow::on_repairButton_released()
+{
+    disableAllButtons();
+    repairPackage();
+    enableAllButtons();
+}
+
+
+void MainWindow::on_colourThemeButton_released()
+{
+    disableAllButtons();
+    changeColourTheme();
+    enableAllButtons();
+}
+
