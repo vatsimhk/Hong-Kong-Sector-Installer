@@ -15,6 +15,7 @@
 #include "mergeconflictdialog.h"
 #include "migratedialog.h"
 #include "colourthemepicker.h"
+#include "repairdialog.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }

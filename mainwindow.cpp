@@ -99,6 +99,13 @@ int fetch_progress(
     return 0;
 }
 
+char *convert_cstring(const std::string & s)
+{
+    char *pc = new char[s.size()+1];
+    std::strcpy(pc, s.c_str());
+    return pc;
+}
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -596,7 +603,84 @@ void MainWindow::migrateOldInstall(std::string repoPath) {
 }
 
 void MainWindow::repairPackage() {
+    std::string repoPath = selectRepositoryPath();
+    if (repoPath == "") return;
 
+    showMessage("Detecting Changes...");
+    repaint();
+
+    // Initialize libgit2
+    git_libgit2_init();
+
+    // Open the repository
+    git_repository* repo = nullptr;
+    int error = git_repository_open(&repo, repoPath.c_str());
+    if (error != 0) {
+        showMessage("Unable to repair Sector Package", "Hong Kong Sector Package not found in this folder.");
+        git_libgit2_shutdown();
+        return;
+    }
+
+    // Get the repository's status
+    git_status_options status_options = GIT_STATUS_OPTIONS_INIT;
+    git_status_list* status_list = nullptr;
+    error = git_status_list_new(&status_list, repo, &status_options);
+    if (error != 0) {
+        showMessage("Unable to repair Sector Package", giterr_last()->message);
+        git_repository_free(repo);
+        git_libgit2_shutdown();
+        return;
+    }
+
+    // Iterate through the status list
+    size_t entryCount = git_status_list_entrycount(status_list);
+    std::vector<std::string> modified_files_list;
+    for (size_t i = 0; i < entryCount; ++i) {
+        const git_status_entry* entry = git_status_byindex(status_list, i);
+
+        // Check if the entry represents an uncommitted change
+        if (entry->status == GIT_STATUS_WT_MODIFIED || entry->status == GIT_STATUS_CONFLICTED) {
+            const char* path = entry->head_to_index != nullptr ? entry->head_to_index->new_file.path : entry->index_to_workdir->new_file.path;
+            modified_files_list.push_back(path);
+        }
+    }
+
+    repairDialog* repair_dialog = new repairDialog;
+    repair_dialog->update_file_list(modified_files_list);
+    repair_dialog->exec();
+
+    std::vector<std::string> selected_files_list = repair_dialog->get_selected_files();
+    delete repair_dialog;
+    if(selected_files_list.empty()) {
+        //nothing to repair
+        showMessage("Sector Package repair cancelled");
+        git_status_list_free(status_list);
+        git_repository_free(repo);
+        git_libgit2_shutdown();
+        return;
+    }
+
+    //magic that convers string vector into C style array for libgit2
+    std::vector<char*>  selected_files_list_ptr;
+    std::transform(selected_files_list.begin(), selected_files_list.end(), std::back_inserter(selected_files_list_ptr), convert_cstring);
+    git_checkout_options checkout_options = GIT_CHECKOUT_OPTIONS_INIT;
+    checkout_options.checkout_strategy = GIT_CHECKOUT_FORCE; // Want to HARD reset
+    checkout_options.paths.strings = &selected_files_list_ptr[0]; // restrict to selected paths
+    checkout_options.paths.count = selected_files_list.size();
+    git_index* index = nullptr;
+    git_repository_index(&index, repo);
+
+    //Perform the reset
+    error = git_checkout_index(repo, index, &checkout_options);
+    if (error != 0)
+        showMessage("Unable to repair Sector Package", giterr_last()->message);
+
+    showMessage("Sector Package repaired successfully");
+
+    // Clean up
+    git_status_list_free(status_list);
+    git_repository_free(repo);
+    git_libgit2_shutdown();
 }
 
 void MainWindow::changeColourTheme() {
