@@ -98,6 +98,22 @@ void colourThemePicker::replaceBetweenMarkers(const std::string& filename,
 
     bool insideMarkerSection = false;
 
+    if(filename.find(".prf") != std::string::npos) {
+        while (std::getline(inputFile, line)) {
+            if(line.find("SettingsfileSYMBOLOGY") != std::string::npos) {
+                buffer << replacement;
+            } else {
+                buffer << line << '\n';
+            }
+        }
+        inputFile.close();
+        std::ofstream outputFile(filename, std::ios::trunc);
+
+        outputFile << buffer.str();
+        outputFile.close();
+        return;
+    }
+
     while (std::getline(inputFile, line)) {
         size_t beginMarkerPos = line.find(begin);
         size_t endMarkerPos = line.find(end);
