@@ -99,6 +99,13 @@ int fetch_progress(
     return 0;
 }
 
+char *convert_cstring(const std::string & s)
+{
+    char *pc = new char[s.size()+1];
+    std::strcpy(pc, s.c_str());
+    return pc;
+}
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -106,15 +113,14 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
     // Create a layout to manage widgets
-
-    this->setFixedSize(500,450);
-
     textLabel = ui->messageBox;
     errorLabel = ui->errorBox;
     installButton = ui->installButton;
     updateButton = ui->updateButton;
+    colourThemeButton = ui->colourThemeButton;
+    repairButton = ui->repairButton;
     QPixmap logo(":/images/hkvacc-blue.png");
-    QPixmap logoScaled = logo.scaled(300, 300, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    QPixmap logoScaled = logo.scaled(380, 380, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     ui->logoLabel->setPixmap(logoScaled);
     ui->logoLabel->setAlignment(Qt::AlignCenter);
 
@@ -123,9 +129,6 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->messageBox->setAlignment(Qt::AlignCenter);
     ui->errorBox->setAlignment(Qt::AlignCenter);
-
-    connect(installButton, &QPushButton::released, this, &MainWindow::handleInstallButton);
-    connect(updateButton, &QPushButton::released, this, &MainWindow::handleUpdateButton);
 
     g_mainWindow = this;
 }
@@ -327,6 +330,8 @@ void MainWindow::updatePackage() {
     git_checkout_options checkout_options = GIT_CHECKOUT_OPTIONS_INIT;
     checkout_options.checkout_strategy = GIT_CHECKOUT_FORCE;
     error = git_checkout_tree(repo, main_obj, &checkout_options);
+    //MOVE HEAD TO DESIRED BRANCH
+    error = git_repository_set_head(repo, LOCAL_BRANCH);
     if(error != 0) {
         showMessage("error checking out main branch: ", std::string(giterr_last()->message));
         git_object_free(main_obj);
@@ -597,25 +602,112 @@ void MainWindow::migrateOldInstall(std::string repoPath) {
     showMessage("Sector File Migrated and Updated to " + getSctVersion(newRepoPath));
 }
 
+void MainWindow::repairPackage() {
+    std::string repoPath = selectRepositoryPath();
+    if (repoPath == "") return;
 
-void MainWindow::handleInstallButton() {
-    installButton->setEnabled(false);
-    updateButton->setEnabled(false);
+    showMessage("Detecting Changes...");
+    repaint();
 
-    installPackage();
+    // Initialize libgit2
+    git_libgit2_init();
 
-    installButton->setEnabled(true);
-    updateButton->setEnabled(true);
+    // Open the repository
+    git_repository* repo = nullptr;
+    int error = git_repository_open(&repo, repoPath.c_str());
+    if (error != 0) {
+        showMessage("Unable to repair Sector Package", "Hong Kong Sector Package not found in this folder.");
+        git_libgit2_shutdown();
+        return;
+    }
+
+    // Get the repository's status
+    git_status_options status_options = GIT_STATUS_OPTIONS_INIT;
+    git_status_list* status_list = nullptr;
+    error = git_status_list_new(&status_list, repo, &status_options);
+    if (error != 0) {
+        showMessage("Unable to repair Sector Package", giterr_last()->message);
+        git_repository_free(repo);
+        git_libgit2_shutdown();
+        return;
+    }
+
+    // Iterate through the status list
+    size_t entryCount = git_status_list_entrycount(status_list);
+    std::vector<std::string> modified_files_list;
+    for (size_t i = 0; i < entryCount; ++i) {
+        const git_status_entry* entry = git_status_byindex(status_list, i);
+
+        // Check if the entry represents an uncommitted change
+        if (entry->status == GIT_STATUS_WT_MODIFIED || entry->status == GIT_STATUS_CONFLICTED) {
+            const char* path = entry->head_to_index != nullptr ? entry->head_to_index->new_file.path : entry->index_to_workdir->new_file.path;
+            modified_files_list.push_back(path);
+        }
+    }
+
+    repairDialog* repair_dialog = new repairDialog;
+    repair_dialog->update_file_list(modified_files_list);
+    repair_dialog->exec();
+
+    std::vector<std::string> selected_files_list = repair_dialog->get_selected_files();
+    delete repair_dialog;
+    if(selected_files_list.empty()) {
+        //nothing to repair
+        showMessage("Sector Package repair cancelled");
+        git_status_list_free(status_list);
+        git_repository_free(repo);
+        git_libgit2_shutdown();
+        return;
+    }
+
+    //magic that convers string vector into C style array for libgit2
+    std::vector<char*>  selected_files_list_ptr;
+    std::transform(selected_files_list.begin(), selected_files_list.end(), std::back_inserter(selected_files_list_ptr), convert_cstring);
+    git_checkout_options checkout_options = GIT_CHECKOUT_OPTIONS_INIT;
+    checkout_options.checkout_strategy = GIT_CHECKOUT_FORCE; // Want to HARD reset
+    checkout_options.paths.strings = &selected_files_list_ptr[0]; // restrict to selected paths
+    checkout_options.paths.count = selected_files_list.size();
+    git_index* index = nullptr;
+    git_repository_index(&index, repo);
+
+    //Perform the reset
+    error = git_checkout_index(repo, index, &checkout_options);
+    if (error != 0)
+        showMessage("Unable to repair Sector Package", giterr_last()->message);
+
+    showMessage("Sector Package repaired successfully");
+
+    // Clean up
+    git_status_list_free(status_list);
+    git_repository_free(repo);
+    git_libgit2_shutdown();
 }
 
-void MainWindow::handleUpdateButton() {
-    installButton->setEnabled(false);
-    updateButton->setEnabled(false);
+void MainWindow::changeColourTheme() {
+    std::string repoPath = selectRepositoryPath();
+    if (repoPath == "") return;
 
-    updatePackage();
+    git_libgit2_init();
+    git_repository *repo = nullptr;
 
-    installButton->setEnabled(true);
-    updateButton->setEnabled(true);
+    int error = git_repository_open(&repo, repoPath.c_str());
+    if (error != 0) {
+        showMessage("Sector Package not found in this folder");
+    } else {
+        colourThemePicker* colour_theme_picker = new colourThemePicker;
+        colour_theme_picker->set_repo_path(repoPath);
+        colour_theme_picker->exec();
+
+        if(colour_theme_picker->get_selected_theme() != "") {
+            showMessage("Colour theme updated to " + colour_theme_picker->get_selected_theme());
+        }
+        if(colour_theme_picker->get_error_message() != "") {
+            showMessage("Error changing colour theme:", colour_theme_picker->get_error_message());
+        }
+        delete colour_theme_picker;
+    }
+
+    git_libgit2_shutdown();
 }
 
 void MainWindow::setProgressBarMax(int value) {
@@ -634,3 +726,49 @@ void MainWindow::setProgressBarText(std::string message) {
     QString progress = QString::fromStdString(message);
     ui->progressBar->setFormat(progress);
 }
+
+void MainWindow::enableAllButtons() {
+    installButton->setEnabled(true);
+    updateButton->setEnabled(true);
+    colourThemeButton->setEnabled(true);
+    repairButton->setEnabled(true);
+}
+
+void MainWindow::disableAllButtons() {
+    installButton->setEnabled(false);
+    updateButton->setEnabled(false);
+    colourThemeButton->setEnabled(false);
+    repairButton->setEnabled(false);
+}
+
+void MainWindow::on_installButton_released()
+{
+    disableAllButtons();
+    installPackage();
+    enableAllButtons();
+}
+
+
+void MainWindow::on_updateButton_released()
+{
+    disableAllButtons();
+    updatePackage();
+    enableAllButtons();
+}
+
+
+void MainWindow::on_repairButton_released()
+{
+    disableAllButtons();
+    repairPackage();
+    enableAllButtons();
+}
+
+
+void MainWindow::on_colourThemeButton_released()
+{
+    disableAllButtons();
+    changeColourTheme();
+    enableAllButtons();
+}
+

@@ -7,8 +7,20 @@
     <x>0</x>
     <y>0</y>
     <width>500</width>
-    <height>450</height>
+    <height>500</height>
    </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>500</width>
+    <height>500</height>
+   </size>
+  </property>
+  <property name="maximumSize">
+   <size>
+    <width>500</width>
+    <height>500</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>Hong Kong Sector Package Installer</string>
@@ -50,10 +62,10 @@ color: rgb(0, 0, 0);</string>
       <widget class="QLabel" name="logoLabel">
        <property name="geometry">
         <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>481</width>
-         <height>141</height>
+         <x>50</x>
+         <y>10</y>
+         <width>381</width>
+         <height>121</height>
         </rect>
        </property>
        <property name="minimumSize">
@@ -106,7 +118,7 @@ text-align: center;</string>
          <x>0</x>
          <y>35</y>
          <width>481</width>
-         <height>31</height>
+         <height>41</height>
         </rect>
        </property>
        <property name="styleSheet">
@@ -164,7 +176,7 @@ text-align: center;</string>
       <property name="maximumSize">
        <size>
         <width>16777215</width>
-        <height>80</height>
+        <height>120</height>
        </size>
       </property>
       <property name="autoFillBackground">
@@ -205,6 +217,35 @@ color: rgb(0,0,0);</string>
          </property>
          <property name="text">
           <string>Update Sector Package</string>
+         </property>
+         <property name="default">
+          <bool>true</bool>
+         </property>
+         <property name="flat">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="repairButton">
+         <property name="text">
+          <string>Repair Sector Package</string>
+         </property>
+         <property name="default">
+          <bool>true</bool>
+         </property>
+         <property name="flat">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="colourThemeButton">
+         <property name="styleSheet">
+          <string notr="true">QPushButton:pressed { background-color: rgb(36,131,179); }</string>
+         </property>
+         <property name="text">
+          <string>Change Colour Theme</string>
          </property>
          <property name="default">
           <bool>true</bool>
