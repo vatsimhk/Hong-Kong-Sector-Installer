@@ -24,6 +24,7 @@ public:
     void set_repo_path(std::string path);
     void add_file(std::string filename);
     void update_file_list_display();
+    std::string findKeepStatus(const std::string& filename, const std::string& repo_path);
 
 private:
     Ui::mergeConflictDialog *ui;
