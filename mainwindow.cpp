@@ -119,6 +119,10 @@ MainWindow::MainWindow(QWidget *parent)
     updateButton = ui->updateButton;
     colourThemeButton = ui->colourThemeButton;
     repairButton = ui->repairButton;
+    optionsButton = ui->optionsButton;
+
+    advanced_options_dialog = new optionsDialog;
+
     QPixmap logo(":/images/hkvacc-blue.png");
     QPixmap logoScaled = logo.scaled(380, 380, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     ui->logoLabel->setPixmap(logoScaled);
@@ -135,6 +139,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    delete advanced_options_dialog;
     delete ui;
 }
 
@@ -732,6 +737,7 @@ void MainWindow::enableAllButtons() {
     updateButton->setEnabled(true);
     colourThemeButton->setEnabled(true);
     repairButton->setEnabled(true);
+    optionsButton->setEnabled(true);
 }
 
 void MainWindow::disableAllButtons() {
@@ -739,6 +745,7 @@ void MainWindow::disableAllButtons() {
     updateButton->setEnabled(false);
     colourThemeButton->setEnabled(false);
     repairButton->setEnabled(false);
+    optionsButton->setEnabled(false);
 }
 
 void MainWindow::on_installButton_released()
@@ -769,6 +776,14 @@ void MainWindow::on_colourThemeButton_released()
 {
     disableAllButtons();
     changeColourTheme();
+    enableAllButtons();
+}
+
+
+void MainWindow::on_optionsButton_released()
+{
+    disableAllButtons();
+    advanced_options_dialog->exec();
     enableAllButtons();
 }
 

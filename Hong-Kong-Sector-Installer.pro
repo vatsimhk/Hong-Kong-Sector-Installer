@@ -14,6 +14,7 @@ SOURCES += \
     mainwindow.cpp \
     mergeconflictdialog.cpp \
     migratedialog.cpp \
+    optionsdialog.cpp \
     repairdialog.cpp
 
 HEADERS += \
@@ -21,6 +22,7 @@ HEADERS += \
     mainwindow.h \
     mergeconflictdialog.h \
     migratedialog.h \
+    optionsdialog.h \
     repairdialog.h
 
 FORMS += \
@@ -28,6 +30,7 @@ FORMS += \
     mainwindow.ui \
     mergeconflictdialog.ui \
     migratedialog.ui \
+    optionsdialog.ui \
     repairdialog.ui
 
 INCLUDEPATH += "C:/Users/Justin Wai/source/repos/libgit2-1.7.1/build/include"

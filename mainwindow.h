@@ -16,6 +16,7 @@
 #include "migratedialog.h"
 #include "colourthemepicker.h"
 #include "repairdialog.h"
+#include "optionsdialog.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -54,6 +55,8 @@ private slots:
 
     void on_colourThemeButton_released();
 
+    void on_optionsButton_released();
+
 private:
     Ui::MainWindow *ui;
     QLabel *textLabel;
@@ -62,5 +65,7 @@ private:
     QPushButton *updateButton;
     QPushButton *repairButton;
     QPushButton *colourThemeButton;
+    QPushButton *optionsButton;
+    optionsDialog *advanced_options_dialog;
 };
 #endif // MAINWINDOW_H
