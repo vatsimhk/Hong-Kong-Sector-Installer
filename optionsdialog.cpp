@@ -6,9 +6,40 @@ optionsDialog::optionsDialog(QWidget *parent) :
     ui(new Ui::optionsdialog)
 {
     ui->setupUi(this);
+
+    std::ifstream inputFile(proxy_settings_file);
+    if(!inputFile.is_open()) {
+        return;
+    }
+
+    std::string line;
+    if(std::getline(inputFile, line)) {
+        ui->proxyURL->setText(QString::fromStdString(line));
+    }
+
+    if(std::getline(inputFile, line)) {
+        ui->proxyUsername->setText(QString::fromStdString(line));
+    }
+
+    if(std::getline(inputFile, line)) {
+        ui->proxyPassword->setText(QString::fromStdString(line));
+    }
 }
 
 optionsDialog::~optionsDialog()
 {
+    std::ofstream outputFile(proxy_settings_file, std::ofstream::out);
+
+    if(!outputFile.is_open()) {
+        delete ui;
+        return;
+    }
+
+    outputFile << ui->proxyURL->text().toStdString() << std::endl;
+    outputFile << ui->proxyUsername->text().toStdString() << std::endl;
+    outputFile << ui->proxyPassword->text().toStdString() << std::endl;
+
+    outputFile.close();
+
     delete ui;
 }

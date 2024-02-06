@@ -2,6 +2,9 @@
 #define OPTIONSDIALOG_H
 
 #include <QDialog>
+#include <string>
+#include <fstream>
+#include <iostream>
 
 namespace Ui {
 class optionsdialog;
@@ -17,6 +20,8 @@ public:
 
 private:
     Ui::optionsdialog *ui;
+
+    const std::string proxy_settings_file = "ProxySettings.txt";
 };
 
 #endif // OPTIONSDIALOG_H
