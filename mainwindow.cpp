@@ -167,6 +167,25 @@ void MainWindow::showMessage(const std::string& message, const std::string& erro
     errorLabel->setWordWrap(true);
 }
 
+void MainWindow::set_proxy_settings(git_clone_options clone_opts) {
+    std::string proxy_URL = advanced_options_dialog->get_proxy_URL();
+    clone_opts.fetch_opts.proxy_opts = GIT_PROXY_OPTIONS_INIT;
+    if(proxy_URL == "") {
+       clone_opts.fetch_opts.proxy_opts.type = GIT_PROXY_AUTO;
+       return;
+    }
+
+    clone_opts.fetch_opts.proxy_opts.type = GIT_PROXY_SPECIFIED;
+    clone_opts.fetch_opts.proxy_opts.url = proxy_URL.c_str();
+
+    std::string proxy_username = advanced_options_dialog->get_proxy_username();
+    std::string proxy_password = advanced_options_dialog->get_proxy_password();
+
+    if(proxy_username == "" || proxy_password == "" ) {
+       return;
+    }
+}
+
 void MainWindow::installPackage() {
     // Initialize the library
     git_libgit2_init();
@@ -190,7 +209,8 @@ void MainWindow::installPackage() {
     if (error == GIT_ENOTFOUND) {
         git_clone_options clone_options = GIT_CLONE_OPTIONS_INIT;
         clone_options.fetch_opts.callbacks.transfer_progress = fetch_progress;
-        //clone_options.fetch_opts.callbacks.payload = &d;
+        set_proxy_settings(clone_options);
+
         repoPath += "/Hong-Kong-Sector-Package";
         showMessage("Cloning Repository...");
         ui->progressBar->reset();
@@ -268,11 +288,17 @@ void MainWindow::updatePackage() {
         return;
     }
 
+    git_index* index = nullptr;
+    git_commit* latest = nullptr;
+    git_oid head_id;
+    git_reference_name_to_id(&head_id, repo, LOCAL_BRANCH);
+    git_commit_lookup(&latest, repo, &head_id);
+    // Reset to remove unstage any changes
+    git_reset(repo, (git_object*)latest, GIT_RESET_MIXED, NULL);
 
     //stash settings
     git_stash_save_options save_options = GIT_STASH_SAVE_OPTIONS_INIT;
     git_stash_apply_options apply_options = GIT_STASH_APPLY_OPTIONS_INIT;
-
     git_oid saved_stash;
     git_signature* default_signature = nullptr;
     error = git_signature_default(&default_signature, repo);
@@ -324,8 +350,6 @@ void MainWindow::updatePackage() {
         return;
     }
 
-    git_oid head_id;
-    git_reference_name_to_id(&head_id, repo, LOCAL_BRANCH);
     git_oid fetch_head_id;
     git_reference_name_to_id(&fetch_head_id, repo, "FETCH_HEAD");
 
@@ -360,7 +384,6 @@ void MainWindow::updatePackage() {
         git_reference_set_target(&new_head_ref, head_ref, &fetch_head_id, "pull: fast-forward");
 
         git_commit* latest = nullptr;
-
         git_commit_lookup(&latest, repo, &fetch_head_id);
         git_reset(repo, (git_object*)latest, GIT_RESET_HARD, NULL);
 
@@ -373,7 +396,7 @@ void MainWindow::updatePackage() {
         git_stash_pop(repo, 0, &apply_options);
 
         //resolve merge conflicts
-        git_index* index = nullptr;
+        index = nullptr;
         git_repository_index(&index, repo);
         if (git_index_has_conflicts(index))
         {
@@ -644,7 +667,7 @@ void MainWindow::repairPackage() {
         const git_status_entry* entry = git_status_byindex(status_list, i);
 
         // Check if the entry represents an uncommitted change
-        if (entry->status == GIT_STATUS_WT_MODIFIED || entry->status == GIT_STATUS_CONFLICTED) {
+        if (entry->status != GIT_STATUS_CURRENT) {
             const char* path = entry->head_to_index != nullptr ? entry->head_to_index->new_file.path : entry->index_to_workdir->new_file.path;
             modified_files_list.push_back(path);
         }

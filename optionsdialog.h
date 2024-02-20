@@ -18,6 +18,10 @@ public:
     explicit optionsDialog(QWidget *parent = nullptr);
     ~optionsDialog();
 
+    std::string get_proxy_URL();
+    std::string get_proxy_username();
+    std::string get_proxy_password();
+
 private:
     Ui::optionsdialog *ui;
 

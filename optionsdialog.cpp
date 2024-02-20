@@ -43,3 +43,16 @@ optionsDialog::~optionsDialog()
 
     delete ui;
 }
+
+std::string optionsDialog::get_proxy_URL() {
+    return ui->proxyURL->text().toStdString();
+}
+
+std::string optionsDialog::get_proxy_username() {
+    return ui->proxyUsername->text().toStdString();
+}
+
+std::string optionsDialog::get_proxy_password() {
+    return ui->proxyPassword->text().toStdString();
+}
+

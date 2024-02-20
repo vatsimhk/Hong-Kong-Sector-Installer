@@ -31,6 +31,7 @@ public:
     ~MainWindow();
     void showMessage(const std::string& message);
     void showMessage(const std::string& message, const std::string& errorMessage);
+    void set_proxy_settings(git_clone_options clone_opts);
     void updatePackage();
     void installPackage();
     void changeColourTheme();
