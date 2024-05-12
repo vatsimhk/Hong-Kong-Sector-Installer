@@ -141,6 +141,7 @@ void MainWindow::showMessage(const std::string& message, const std::string& erro
 void MainWindow::set_proxy_settings(git_clone_options& clone_opts) {
     std::string proxy_URL = advanced_options_dialog->get_proxy_URL();
     clone_opts.fetch_opts.proxy_opts = GIT_PROXY_OPTIONS_INIT;
+
     if(proxy_URL == "") {
        clone_opts.fetch_opts.proxy_opts.type = GIT_PROXY_AUTO;
        return;
@@ -148,13 +149,9 @@ void MainWindow::set_proxy_settings(git_clone_options& clone_opts) {
 
     clone_opts.fetch_opts.proxy_opts.type = GIT_PROXY_SPECIFIED;
     clone_opts.fetch_opts.proxy_opts.url = proxy_URL.c_str();
-
-    std::string proxy_username = advanced_options_dialog->get_proxy_username();
-    std::string proxy_password = advanced_options_dialog->get_proxy_password();
-
-    if(proxy_username == "" || proxy_password == "" ) {
-       return;
-    }
+    clone_opts.fetch_opts.proxy_opts.credentials = proxy_credential_acquire_cb;
+    clone_opts.fetch_opts.proxy_opts.certificate_check = proxy_transport_certificate_check_cb;
+    clone_opts.fetch_opts.proxy_opts.payload = advanced_options_dialog;
 }
 
 void MainWindow::installPackage() {

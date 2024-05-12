@@ -29,3 +29,18 @@ int fetch_progress_cb(const git_indexer_progress *stats, void *payload) {
     g_mainWindow->repaint();
     return 0;
 }
+
+int proxy_transport_certificate_check_cb(git_cert */*cert*/, int /*valid*/, const char */*host*/, void */*payload*/) {
+    // Assume the proxy is valid and return no error
+    return 0;
+}
+
+int proxy_credential_acquire_cb(git_credential **out, const char */*url*/, const char */*username_from_url*/, unsigned int /*allowed_types*/, void *payload) {
+    // Cast payload void pointer to options Dialog
+    optionsDialog *advanced_options_dialog = (optionsDialog *)payload;
+
+    std::string username = advanced_options_dialog->get_proxy_username();
+    std::string password = advanced_options_dialog->get_proxy_password();
+
+    return git_credential_userpass_plaintext_new(out, username.c_str(), password.c_str());
+}
