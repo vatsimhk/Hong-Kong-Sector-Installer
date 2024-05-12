@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "libgit2_callbacks.h"
 #include <thread>
 
 const char* SECTOR_PACKAGE = "https://github.com/vatsimhk/Hong-Kong-Sector-Package.git";
@@ -7,7 +8,7 @@ const char* REMOTE_REF = "origin";
 const char* REMOTE_BRANCH = "refs/remotes/origin/main";
 const char* LOCAL_BRANCH = "refs/heads/main";
 
-static MainWindow *g_mainWindow;
+MainWindow *g_mainWindow;
 
 std::string selectRepositoryPath() {
     // Use Qt file dialog for path selection
@@ -67,36 +68,6 @@ std::string getSctVersion(std::string repoPath) {
         line.erase(line.begin(), line.begin()+strlen("Hong Kong Sector "));
     }
     return line;
-}
-
-int fetch_progress(
-    const git_indexer_progress *stats,
-    void *payload)
-{
-    /* Do something with network transfer progress */
-    int fetch_percent =
-        (100 * stats->received_objects) /
-        stats->total_objects;
-    int index_percent =
-        (100 * stats->indexed_objects) /
-        stats->total_objects;
-    int kbytes = stats->received_bytes / 1024;
-
-    g_mainWindow->setProgressBarMax(stats->total_objects);
-    g_mainWindow->setProgressBarMin(0);
-
-    std::stringstream progressMessage;
-    if(fetch_percent == 100) {
-       progressMessage << "Indexing " << index_percent << "% (" << stats->indexed_objects << "/" << stats->total_objects << " objects)";
-       g_mainWindow->setProgressBarValue(stats->indexed_objects);
-    } else {
-       progressMessage << "Downloading " << fetch_percent << "% (" << kbytes << " kb, " << stats->received_objects << "/" << stats->total_objects << " objects)" << std::endl << std::endl;
-       g_mainWindow->setProgressBarValue(stats->received_objects);
-    }
-
-    g_mainWindow->setProgressBarText(progressMessage.str());
-    g_mainWindow->repaint();
-    return 0;
 }
 
 char *convert_cstring(const std::string & s)
@@ -167,7 +138,7 @@ void MainWindow::showMessage(const std::string& message, const std::string& erro
     errorLabel->setWordWrap(true);
 }
 
-void MainWindow::set_proxy_settings(git_clone_options clone_opts) {
+void MainWindow::set_proxy_settings(git_clone_options& clone_opts) {
     std::string proxy_URL = advanced_options_dialog->get_proxy_URL();
     clone_opts.fetch_opts.proxy_opts = GIT_PROXY_OPTIONS_INIT;
     if(proxy_URL == "") {
@@ -208,7 +179,7 @@ void MainWindow::installPackage() {
     int error = git_repository_open(&repo, repoPath.c_str());
     if (error == GIT_ENOTFOUND) {
         git_clone_options clone_options = GIT_CLONE_OPTIONS_INIT;
-        clone_options.fetch_opts.callbacks.transfer_progress = fetch_progress;
+        clone_options.fetch_opts.callbacks.transfer_progress = fetch_progress_cb;
         set_proxy_settings(clone_options);
 
         repoPath += "/Hong-Kong-Sector-Package";
@@ -334,7 +305,7 @@ void MainWindow::updatePackage() {
     showMessage("Checking for Updates...");
     repaint();
     git_fetch_options fetch_options = GIT_FETCH_OPTIONS_INIT;
-    fetch_options.callbacks.transfer_progress = fetch_progress;
+    fetch_options.callbacks.transfer_progress = fetch_progress_cb;
     ui->progressBar->reset();
     ui->progressBar->setVisible(true);
     repaint();
@@ -467,7 +438,7 @@ void MainWindow::migrateOldInstall(std::string repoPath) {
     m_dialog->exec();
 
     git_clone_options clone_options = GIT_CLONE_OPTIONS_INIT;
-    clone_options.fetch_opts.callbacks.transfer_progress = fetch_progress;
+    clone_options.fetch_opts.callbacks.transfer_progress = fetch_progress_cb;
     ui->progressBar->reset();
     ui->progressBar->setVisible(true);
     repaint();
@@ -575,7 +546,7 @@ void MainWindow::migrateOldInstall(std::string repoPath) {
 
     //perform fastforward to update
     git_fetch_options fetch_options = GIT_FETCH_OPTIONS_INIT;
-    fetch_options.callbacks.transfer_progress = fetch_progress;
+    fetch_options.callbacks.transfer_progress = fetch_progress_cb;
     ui->progressBar->reset();
     ui->progressBar->setVisible(true);
     repaint();

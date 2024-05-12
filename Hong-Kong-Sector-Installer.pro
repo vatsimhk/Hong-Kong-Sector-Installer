@@ -10,6 +10,7 @@ CONFIG += c++17
 
 SOURCES += \
     colourthemepicker.cpp \
+    libgit2_callbacks.cpp \
     main.cpp \
     mainwindow.cpp \
     mergeconflictdialog.cpp \
@@ -19,6 +20,7 @@ SOURCES += \
 
 HEADERS += \
     colourthemepicker.h \
+    libgit2_callbacks.h \
     mainwindow.h \
     mergeconflictdialog.h \
     migratedialog.h \
