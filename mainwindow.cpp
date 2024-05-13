@@ -147,6 +147,7 @@ void MainWindow::showMessage(const std::string& message, const std::string& erro
 void MainWindow::set_proxy_settings(git_fetch_options& fetch_opts) {
     std::string proxy_URL = advanced_options_dialog->get_proxy_URL();
     fetch_opts.proxy_opts = GIT_PROXY_OPTIONS_INIT;
+    fetch_opts.follow_redirects = GIT_REMOTE_REDIRECT_ALL;
 
     if(proxy_URL == "") {
        fetch_opts.proxy_opts.type = GIT_PROXY_AUTO;
