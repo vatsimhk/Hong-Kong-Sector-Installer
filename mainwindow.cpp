@@ -2,6 +2,8 @@
 #include "ui_mainwindow.h"
 #include "libgit2_callbacks.h"
 #include <thread>
+#include <QtConcurrent/QtConcurrentRun>
+#include <QFutureWatcher>
 
 const char* SECTOR_PACKAGE = "https://github.com/vatsimhk/Hong-Kong-Sector-Package.git";
 const char* REMOTE_REF = "origin";
@@ -101,6 +103,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->progressBar->setVisible(false);
     ui->progressBar->setAlignment(Qt::AlignCenter);
+    setProgressBarMin(0);
+    connect(this, &MainWindow::progressBarMaxChanged, this, &MainWindow::setProgressBarMax);
+    connect(this, &MainWindow::progressBarValueChanged, this, &MainWindow::setProgressBarValue);
+    connect(this, &MainWindow::progressBarTextChanged, this, &MainWindow::setProgressBarText);
 
     ui->messageBox->setAlignment(Qt::AlignCenter);
     ui->errorBox->setAlignment(Qt::AlignCenter);
@@ -138,20 +144,20 @@ void MainWindow::showMessage(const std::string& message, const std::string& erro
     errorLabel->setWordWrap(true);
 }
 
-void MainWindow::set_proxy_settings(git_clone_options& clone_opts) {
+void MainWindow::set_proxy_settings(git_fetch_options& fetch_opts) {
     std::string proxy_URL = advanced_options_dialog->get_proxy_URL();
-    clone_opts.fetch_opts.proxy_opts = GIT_PROXY_OPTIONS_INIT;
+    fetch_opts.proxy_opts = GIT_PROXY_OPTIONS_INIT;
 
     if(proxy_URL == "") {
-       clone_opts.fetch_opts.proxy_opts.type = GIT_PROXY_AUTO;
+       fetch_opts.proxy_opts.type = GIT_PROXY_AUTO;
        return;
     }
 
-    clone_opts.fetch_opts.proxy_opts.type = GIT_PROXY_SPECIFIED;
-    clone_opts.fetch_opts.proxy_opts.url = proxy_URL.c_str();
-    clone_opts.fetch_opts.proxy_opts.credentials = proxy_credential_acquire_cb;
-    clone_opts.fetch_opts.proxy_opts.certificate_check = proxy_transport_certificate_check_cb;
-    clone_opts.fetch_opts.proxy_opts.payload = advanced_options_dialog;
+    fetch_opts.proxy_opts.type = GIT_PROXY_SPECIFIED;
+    fetch_opts.proxy_opts.url = proxy_URL.c_str();
+    fetch_opts.proxy_opts.credentials = proxy_credential_acquire_cb;
+    fetch_opts.proxy_opts.certificate_check = proxy_transport_certificate_check_cb;
+    fetch_opts.proxy_opts.payload = advanced_options_dialog;
 }
 
 void MainWindow::installPackage() {
@@ -177,14 +183,29 @@ void MainWindow::installPackage() {
     if (error == GIT_ENOTFOUND) {
         git_clone_options clone_options = GIT_CLONE_OPTIONS_INIT;
         clone_options.fetch_opts.callbacks.transfer_progress = fetch_progress_cb;
-        set_proxy_settings(clone_options);
+        clone_options.fetch_opts.callbacks.payload = this;
+        set_proxy_settings(clone_options.fetch_opts);
 
         repoPath += "/Hong-Kong-Sector-Package";
         showMessage("Cloning Repository...");
         ui->progressBar->reset();
         ui->progressBar->setVisible(true);
         repaint();
-        error = git_clone(&repo, SECTOR_PACKAGE, repoPath.c_str(), &clone_options);
+
+        // Run Git Clone in separate thread to avoid freezing UI
+        QFuture<int> future = QtConcurrent::run(git_clone, &repo, SECTOR_PACKAGE, repoPath.c_str(), &clone_options);
+        QFutureWatcher<int> watcher;
+        QEventLoop loop;
+
+        // QueuedConnection is necessary in case the signal finished is emitted before the loop starts
+        // (if the task is already finished when setFuture is called)
+        connect(&watcher, SIGNAL(finished()), &loop, SLOT(quit()),  Qt::QueuedConnection);
+        watcher.setFuture(future);
+
+        // passive wait until QFuture is finished
+        loop.exec();
+        error = future.result();
+
         if (error != 0) {
             showMessage("Error cloning repository: ", std::string(giterr_last()->message));
             git_libgit2_shutdown();
@@ -302,6 +323,7 @@ void MainWindow::updatePackage() {
     showMessage("Checking for Updates...");
     repaint();
     git_fetch_options fetch_options = GIT_FETCH_OPTIONS_INIT;
+    set_proxy_settings(fetch_options);
     fetch_options.callbacks.transfer_progress = fetch_progress_cb;
     ui->progressBar->reset();
     ui->progressBar->setVisible(true);
@@ -408,23 +430,6 @@ void MainWindow::migrateOldInstall(std::string repoPath) {
     git_repository *repo = nullptr;
     int error;
 
-    /*int error = git_repository_open(&repo, repoPath.c_str());
-    if(error == 0) {
-        showMessage("New install detected. Use the Update button instead");
-
-        git_repository_free(repo);
-        git_libgit2_shutdown();
-        return;
-    }
-
-    std::ifstream checkFile(repoPath + "/Data/Sector/Hong-Kong-Sector-File.sct");
-    if(!checkFile.is_open()) {
-        showMessage("Unable to locate Hong Kong Sector File in this folder");
-        git_libgit2_shutdown();
-        return;
-    }
-    checkFile.close();*/
-
     std::string newRepoPath = repoPath.substr(0, repoPath.std::string::find_last_of("\\/"));
     std::filesystem::rename(repoPath, newRepoPath + "/Hong-Kong-Sector (Old Backup)");
     repoPath = newRepoPath + "/Hong-Kong-Sector (Old Backup)";
@@ -436,18 +441,28 @@ void MainWindow::migrateOldInstall(std::string repoPath) {
 
     git_clone_options clone_options = GIT_CLONE_OPTIONS_INIT;
     clone_options.fetch_opts.callbacks.transfer_progress = fetch_progress_cb;
+    clone_options.fetch_opts.callbacks.payload = this;
+    set_proxy_settings(clone_options.fetch_opts);
+
+    repoPath += "/Hong-Kong-Sector-Package";
+    showMessage("Cloning Repository...");
     ui->progressBar->reset();
     ui->progressBar->setVisible(true);
     repaint();
-    showMessage("Cloning Repository...");
-    repaint();
-    error = git_clone(&repo, SECTOR_PACKAGE, newRepoPath.c_str(), &clone_options);
-    if (error != 0) {
-        showMessage("Error cloning repository: ", std::string(giterr_last()->message));
-        git_libgit2_shutdown();
-        ui->progressBar->setVisible(false);
-        return;
-    }
+
+    // Run Git Clone in separate thread to avoid freezing UI
+    QFuture<int> future = QtConcurrent::run(git_clone, &repo, SECTOR_PACKAGE, repoPath.c_str(), &clone_options);
+    QFutureWatcher<int> watcher;
+    QEventLoop loop;
+
+    // QueuedConnection is necessary in case the signal finished is emitted before the loop starts
+    // (if the task is already finished when setFuture is called)
+    connect(&watcher, SIGNAL(finished()), &loop, SLOT(quit()),  Qt::QueuedConnection);
+    watcher.setFuture(future);
+
+    // passive wait until QFuture is finished
+    loop.exec();
+    error = future.result();
 
     ui->progressBar->setVisible(false);
     repaint();
@@ -543,6 +558,7 @@ void MainWindow::migrateOldInstall(std::string repoPath) {
 
     //perform fastforward to update
     git_fetch_options fetch_options = GIT_FETCH_OPTIONS_INIT;
+    set_proxy_settings(fetch_options);
     fetch_options.callbacks.transfer_progress = fetch_progress_cb;
     ui->progressBar->reset();
     ui->progressBar->setVisible(true);

@@ -31,17 +31,12 @@ public:
     ~MainWindow();
     void showMessage(const std::string& message);
     void showMessage(const std::string& message, const std::string& errorMessage);
-    void set_proxy_settings(git_clone_options& clone_opts);
+    void set_proxy_settings(git_fetch_options& fetch_opts);
     void updatePackage();
     void installPackage();
     void changeColourTheme();
     void repairPackage();
     void migrateOldInstall(std::string repoPath);
-
-    void setProgressBarText(std::string message);
-    void setProgressBarValue(int value);
-    void setProgressBarMax(int value);
-    void setProgressBarMin(int value);
 
     void enableAllButtons();
     void disableAllButtons();
@@ -57,6 +52,16 @@ private slots:
     void on_colourThemeButton_released();
 
     void on_optionsButton_released();
+
+    void setProgressBarText(std::string message);
+    void setProgressBarValue(int value);
+    void setProgressBarMax(int value);
+    void setProgressBarMin(int value);
+
+signals:
+    void progressBarTextChanged(std::string message);
+    void progressBarValueChanged(int value);
+    void progressBarMaxChanged(int value);
 
 private:
     Ui::MainWindow *ui;
