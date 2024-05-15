@@ -325,6 +325,7 @@ void MainWindow::updatePackage() {
     repaint();
     git_fetch_options fetch_options = GIT_FETCH_OPTIONS_INIT;
     set_proxy_settings(fetch_options);
+    fetch_options.callbacks.payload = this;
     fetch_options.callbacks.transfer_progress = fetch_progress_cb;
     ui->progressBar->reset();
     ui->progressBar->setVisible(true);
