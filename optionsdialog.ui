@@ -76,10 +76,13 @@
     </font>
    </property>
    <property name="text">
-    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Proxy Settings&lt;/span&gt;&lt;/p&gt;&lt;p&gt;URL&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Proxy Settings (Not Supported Yet)&lt;/span&gt;&lt;/p&gt;&lt;p&gt;URL&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
    </property>
   </widget>
   <widget class="QLineEdit" name="proxyURL">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="geometry">
     <rect>
      <x>20</x>
@@ -109,6 +112,9 @@
    </property>
   </widget>
   <widget class="QLineEdit" name="proxyUsername">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="geometry">
     <rect>
      <x>20</x>
@@ -138,6 +144,9 @@
    </property>
   </widget>
   <widget class="QLineEdit" name="proxyPassword">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="geometry">
     <rect>
      <x>20</x>

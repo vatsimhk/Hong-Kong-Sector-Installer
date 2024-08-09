@@ -36,6 +36,38 @@ void mergeConflictDialog::update_file_list_display() {
     ui->file_list_label->setText(QString::fromStdString(complete_file_list));
 }
 
+void mergeConflictDialog::load_force_keep_lines() {
+    std::ifstream file(repo_path + "/Data/MergeConflictStrategy.txt");
+
+    if (!file.is_open()) {
+        std::cerr << "Error opening file." << std::endl;
+        return; // Assume nothing and return
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if(line.find("ForceKeep: ") == std::string::npos) {
+            continue;
+        }
+
+        line.erase(line.find("ForceKeep: "), 11);
+        force_keep_lines.push_back(line); // Add to vector
+        std::cout << line << std::endl;
+    }
+
+    force_keep_lines.push_back("LastSession");
+}
+
+bool mergeConflictDialog::check_for_force_keep(const std::string& line) {
+    for(auto & element : force_keep_lines) {
+        if(line.find(element) != std::string::npos) {
+            std::cout << "found " << element << " in " << line << std::endl;
+            return true;
+        }
+    }
+    return false;
+}
+
 std::string mergeConflictDialog::findKeepStatus(const std::string& filename, const std::string& repo_path) {
     std::ifstream file(repo_path + "/Data/MergeConflictStrategy.txt");
 
@@ -68,6 +100,8 @@ std::string mergeConflictDialog::findKeepStatus(const std::string& filename, con
 
 void mergeConflictDialog::resolveMergeConflicts() {
 
+    load_force_keep_lines();
+
     for (std::vector<std::string>::iterator t=file_list.begin(); t!=file_list.end(); ++t)
     {   
         std::string filename = repo_path + "/" + *t;
@@ -99,16 +133,15 @@ void mergeConflictDialog::resolveMergeConflicts() {
             size_t upstreamPos = line.find("<<<<<<< Updated upstream");
 
             if (upstreamPos != std::string::npos) {
-                // Keep lines between "<<<<<<< Updated upstream" and "======="
+                // Conditions for keeping lines between "<<<<<<< Updated upstream" and "======="
                 while (std::getline(inputFile, line) &&
                        line.find("=======") == std::string::npos) {
-                    if(keep_upstream) buffer << line << '\n';
+                    if(keep_upstream && !check_for_force_keep(line)) buffer << line << '\n';
                 }
-                // Skip lines between "=======" and ">>>>>>> Stashed changes"
+                // Conditions for keeping lines between "=======" and ">>>>>>> Stashed changes"
                 while (std::getline(inputFile, line) &&
                        line.find(">>>>>>> Stashed changes") == std::string::npos) {
-                    if(keep_stashed) buffer << line << '\n';
-                    // Do nothing, just skip these lines
+                    if(keep_stashed || check_for_force_keep(line)) buffer << line << '\n';
                 }
             } else {
                 // Keep other lines unchanged
