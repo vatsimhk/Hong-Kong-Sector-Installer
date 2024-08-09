@@ -1,13 +1,16 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "libgit2_callbacks.h"
 #include <thread>
+#include <QtConcurrent/QtConcurrentRun>
+#include <QFutureWatcher>
 
 const char* SECTOR_PACKAGE = "https://github.com/vatsimhk/Hong-Kong-Sector-Package.git";
 const char* REMOTE_REF = "origin";
 const char* REMOTE_BRANCH = "refs/remotes/origin/main";
 const char* LOCAL_BRANCH = "refs/heads/main";
 
-static MainWindow *g_mainWindow;
+MainWindow *g_mainWindow;
 
 std::string selectRepositoryPath() {
     // Use Qt file dialog for path selection
@@ -69,36 +72,6 @@ std::string getSctVersion(std::string repoPath) {
     return line;
 }
 
-int fetch_progress(
-    const git_indexer_progress *stats,
-    void *payload)
-{
-    /* Do something with network transfer progress */
-    int fetch_percent =
-        (100 * stats->received_objects) /
-        stats->total_objects;
-    int index_percent =
-        (100 * stats->indexed_objects) /
-        stats->total_objects;
-    int kbytes = stats->received_bytes / 1024;
-
-    g_mainWindow->setProgressBarMax(stats->total_objects);
-    g_mainWindow->setProgressBarMin(0);
-
-    std::stringstream progressMessage;
-    if(fetch_percent == 100) {
-       progressMessage << "Indexing " << index_percent << "% (" << stats->indexed_objects << "/" << stats->total_objects << " objects)";
-       g_mainWindow->setProgressBarValue(stats->indexed_objects);
-    } else {
-       progressMessage << "Downloading " << fetch_percent << "% (" << kbytes << " kb, " << stats->received_objects << "/" << stats->total_objects << " objects)" << std::endl << std::endl;
-       g_mainWindow->setProgressBarValue(stats->received_objects);
-    }
-
-    g_mainWindow->setProgressBarText(progressMessage.str());
-    g_mainWindow->repaint();
-    return 0;
-}
-
 char *convert_cstring(const std::string & s)
 {
     char *pc = new char[s.size()+1];
@@ -119,6 +92,10 @@ MainWindow::MainWindow(QWidget *parent)
     updateButton = ui->updateButton;
     colourThemeButton = ui->colourThemeButton;
     repairButton = ui->repairButton;
+    optionsButton = ui->optionsButton;
+
+    advanced_options_dialog = new optionsDialog;
+
     QPixmap logo(":/images/hkvacc-blue.png");
     QPixmap logoScaled = logo.scaled(380, 380, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     ui->logoLabel->setPixmap(logoScaled);
@@ -126,6 +103,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->progressBar->setVisible(false);
     ui->progressBar->setAlignment(Qt::AlignCenter);
+    setProgressBarMin(0);
+    connect(this, &MainWindow::progressBarMaxChanged, this, &MainWindow::setProgressBarMax);
+    connect(this, &MainWindow::progressBarValueChanged, this, &MainWindow::setProgressBarValue);
+    connect(this, &MainWindow::progressBarTextChanged, this, &MainWindow::setProgressBarText);
 
     ui->messageBox->setAlignment(Qt::AlignCenter);
     ui->errorBox->setAlignment(Qt::AlignCenter);
@@ -135,6 +116,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    delete advanced_options_dialog;
     delete ui;
 }
 
@@ -162,6 +144,23 @@ void MainWindow::showMessage(const std::string& message, const std::string& erro
     errorLabel->setWordWrap(true);
 }
 
+void MainWindow::set_proxy_settings(git_fetch_options& fetch_opts) {
+    std::string proxy_URL = advanced_options_dialog->get_proxy_URL();
+    fetch_opts.proxy_opts = GIT_PROXY_OPTIONS_INIT;
+    fetch_opts.follow_redirects = GIT_REMOTE_REDIRECT_ALL;
+
+    if(proxy_URL == "") {
+       fetch_opts.proxy_opts.type = GIT_PROXY_AUTO;
+       return;
+    }
+
+    fetch_opts.proxy_opts.type = GIT_PROXY_SPECIFIED;
+    fetch_opts.proxy_opts.url = proxy_URL.c_str();
+    fetch_opts.proxy_opts.credentials = proxy_credential_acquire_cb;
+    fetch_opts.proxy_opts.certificate_check = proxy_transport_certificate_check_cb;
+    fetch_opts.proxy_opts.payload = advanced_options_dialog;
+}
+
 void MainWindow::installPackage() {
     // Initialize the library
     git_libgit2_init();
@@ -184,14 +183,30 @@ void MainWindow::installPackage() {
     int error = git_repository_open(&repo, repoPath.c_str());
     if (error == GIT_ENOTFOUND) {
         git_clone_options clone_options = GIT_CLONE_OPTIONS_INIT;
-        clone_options.fetch_opts.callbacks.transfer_progress = fetch_progress;
-        //clone_options.fetch_opts.callbacks.payload = &d;
+        clone_options.fetch_opts.callbacks.transfer_progress = fetch_progress_cb;
+        clone_options.fetch_opts.callbacks.payload = this;
+        set_proxy_settings(clone_options.fetch_opts);
+
         repoPath += "/Hong-Kong-Sector-Package";
         showMessage("Cloning Repository...");
         ui->progressBar->reset();
         ui->progressBar->setVisible(true);
         repaint();
-        error = git_clone(&repo, SECTOR_PACKAGE, repoPath.c_str(), &clone_options);
+
+        // Run Git Clone in separate thread to avoid freezing UI
+        QFuture<int> future = QtConcurrent::run(git_clone, &repo, SECTOR_PACKAGE, repoPath.c_str(), &clone_options);
+        QFutureWatcher<int> watcher;
+        QEventLoop loop;
+
+        // QueuedConnection is necessary in case the signal finished is emitted before the loop starts
+        // (if the task is already finished when setFuture is called)
+        connect(&watcher, SIGNAL(finished()), &loop, SLOT(quit()),  Qt::QueuedConnection);
+        watcher.setFuture(future);
+
+        // passive wait until QFuture is finished
+        loop.exec();
+        error = future.result();
+
         if (error != 0) {
             showMessage("Error cloning repository: ", std::string(giterr_last()->message));
             git_libgit2_shutdown();
@@ -263,11 +278,17 @@ void MainWindow::updatePackage() {
         return;
     }
 
+    git_index* index = nullptr;
+    git_commit* latest = nullptr;
+    git_oid head_id;
+    git_reference_name_to_id(&head_id, repo, LOCAL_BRANCH);
+    git_commit_lookup(&latest, repo, &head_id);
+    // Reset to remove unstage any changes
+    git_reset(repo, (git_object*)latest, GIT_RESET_MIXED, NULL);
 
     //stash settings
     git_stash_save_options save_options = GIT_STASH_SAVE_OPTIONS_INIT;
     git_stash_apply_options apply_options = GIT_STASH_APPLY_OPTIONS_INIT;
-
     git_oid saved_stash;
     git_signature* default_signature = nullptr;
     error = git_signature_default(&default_signature, repo);
@@ -303,7 +324,9 @@ void MainWindow::updatePackage() {
     showMessage("Checking for Updates...");
     repaint();
     git_fetch_options fetch_options = GIT_FETCH_OPTIONS_INIT;
-    fetch_options.callbacks.transfer_progress = fetch_progress;
+    set_proxy_settings(fetch_options);
+    fetch_options.callbacks.payload = this;
+    fetch_options.callbacks.transfer_progress = fetch_progress_cb;
     ui->progressBar->reset();
     ui->progressBar->setVisible(true);
     repaint();
@@ -319,8 +342,6 @@ void MainWindow::updatePackage() {
         return;
     }
 
-    git_oid head_id;
-    git_reference_name_to_id(&head_id, repo, LOCAL_BRANCH);
     git_oid fetch_head_id;
     git_reference_name_to_id(&fetch_head_id, repo, "FETCH_HEAD");
 
@@ -355,7 +376,6 @@ void MainWindow::updatePackage() {
         git_reference_set_target(&new_head_ref, head_ref, &fetch_head_id, "pull: fast-forward");
 
         git_commit* latest = nullptr;
-
         git_commit_lookup(&latest, repo, &fetch_head_id);
         git_reset(repo, (git_object*)latest, GIT_RESET_HARD, NULL);
 
@@ -368,7 +388,7 @@ void MainWindow::updatePackage() {
         git_stash_pop(repo, 0, &apply_options);
 
         //resolve merge conflicts
-        git_index* index = nullptr;
+        index = nullptr;
         git_repository_index(&index, repo);
         if (git_index_has_conflicts(index))
         {
@@ -412,23 +432,6 @@ void MainWindow::migrateOldInstall(std::string repoPath) {
     git_repository *repo = nullptr;
     int error;
 
-    /*int error = git_repository_open(&repo, repoPath.c_str());
-    if(error == 0) {
-        showMessage("New install detected. Use the Update button instead");
-
-        git_repository_free(repo);
-        git_libgit2_shutdown();
-        return;
-    }
-
-    std::ifstream checkFile(repoPath + "/Data/Sector/Hong-Kong-Sector-File.sct");
-    if(!checkFile.is_open()) {
-        showMessage("Unable to locate Hong Kong Sector File in this folder");
-        git_libgit2_shutdown();
-        return;
-    }
-    checkFile.close();*/
-
     std::string newRepoPath = repoPath.substr(0, repoPath.std::string::find_last_of("\\/"));
     std::filesystem::rename(repoPath, newRepoPath + "/Hong-Kong-Sector (Old Backup)");
     repoPath = newRepoPath + "/Hong-Kong-Sector (Old Backup)";
@@ -439,19 +442,29 @@ void MainWindow::migrateOldInstall(std::string repoPath) {
     m_dialog->exec();
 
     git_clone_options clone_options = GIT_CLONE_OPTIONS_INIT;
-    clone_options.fetch_opts.callbacks.transfer_progress = fetch_progress;
+    clone_options.fetch_opts.callbacks.transfer_progress = fetch_progress_cb;
+    clone_options.fetch_opts.callbacks.payload = this;
+    set_proxy_settings(clone_options.fetch_opts);
+
+    repoPath += "/Hong-Kong-Sector-Package";
+    showMessage("Cloning Repository...");
     ui->progressBar->reset();
     ui->progressBar->setVisible(true);
     repaint();
-    showMessage("Cloning Repository...");
-    repaint();
-    error = git_clone(&repo, SECTOR_PACKAGE, newRepoPath.c_str(), &clone_options);
-    if (error != 0) {
-        showMessage("Error cloning repository: ", std::string(giterr_last()->message));
-        git_libgit2_shutdown();
-        ui->progressBar->setVisible(false);
-        return;
-    }
+
+    // Run Git Clone in separate thread to avoid freezing UI
+    QFuture<int> future = QtConcurrent::run(git_clone, &repo, SECTOR_PACKAGE, repoPath.c_str(), &clone_options);
+    QFutureWatcher<int> watcher;
+    QEventLoop loop;
+
+    // QueuedConnection is necessary in case the signal finished is emitted before the loop starts
+    // (if the task is already finished when setFuture is called)
+    connect(&watcher, SIGNAL(finished()), &loop, SLOT(quit()),  Qt::QueuedConnection);
+    watcher.setFuture(future);
+
+    // passive wait until QFuture is finished
+    loop.exec();
+    error = future.result();
 
     ui->progressBar->setVisible(false);
     repaint();
@@ -547,7 +560,8 @@ void MainWindow::migrateOldInstall(std::string repoPath) {
 
     //perform fastforward to update
     git_fetch_options fetch_options = GIT_FETCH_OPTIONS_INIT;
-    fetch_options.callbacks.transfer_progress = fetch_progress;
+    set_proxy_settings(fetch_options);
+    fetch_options.callbacks.transfer_progress = fetch_progress_cb;
     ui->progressBar->reset();
     ui->progressBar->setVisible(true);
     repaint();
@@ -639,7 +653,7 @@ void MainWindow::repairPackage() {
         const git_status_entry* entry = git_status_byindex(status_list, i);
 
         // Check if the entry represents an uncommitted change
-        if (entry->status == GIT_STATUS_WT_MODIFIED || entry->status == GIT_STATUS_CONFLICTED) {
+        if (entry->status != GIT_STATUS_CURRENT) {
             const char* path = entry->head_to_index != nullptr ? entry->head_to_index->new_file.path : entry->index_to_workdir->new_file.path;
             modified_files_list.push_back(path);
         }
@@ -732,6 +746,7 @@ void MainWindow::enableAllButtons() {
     updateButton->setEnabled(true);
     colourThemeButton->setEnabled(true);
     repairButton->setEnabled(true);
+    optionsButton->setEnabled(true);
 }
 
 void MainWindow::disableAllButtons() {
@@ -739,6 +754,7 @@ void MainWindow::disableAllButtons() {
     updateButton->setEnabled(false);
     colourThemeButton->setEnabled(false);
     repairButton->setEnabled(false);
+    optionsButton->setEnabled(false);
 }
 
 void MainWindow::on_installButton_released()
@@ -769,6 +785,14 @@ void MainWindow::on_colourThemeButton_released()
 {
     disableAllButtons();
     changeColourTheme();
+    enableAllButtons();
+}
+
+
+void MainWindow::on_optionsButton_released()
+{
+    disableAllButtons();
+    advanced_options_dialog->exec();
     enableAllButtons();
 }
 
