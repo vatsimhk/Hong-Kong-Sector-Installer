@@ -252,13 +252,6 @@ void MainWindow::updatePackage() {
         return;
     }
 
-    git_reference* head = nullptr;
-    error = git_repository_head(&head, repo);
-    if (error != 0) {
-        showMessage("Failed to get HEAD reference");
-        return;
-    }
-
     git_remote *remote = nullptr;
     git_strarray *remote_list = new git_strarray;
 
@@ -280,9 +273,6 @@ void MainWindow::updatePackage() {
 
     git_index* index = nullptr;
     git_commit* latest = nullptr;
-    git_oid head_id;
-    git_reference_name_to_id(&head_id, repo, LOCAL_BRANCH);
-    git_commit_lookup(&latest, repo, &head_id);
     // Reset to remove unstage any changes
     git_reset(repo, (git_object*)latest, GIT_RESET_MIXED, NULL);
 
@@ -342,45 +332,71 @@ void MainWindow::updatePackage() {
         return;
     }
 
+    std::string branch_name = "main";
+    std::string local_branch_ref = "refs/heads/" + branch_name;
+    std::string remote_branch_ref = "refs/remotes/origin/" + branch_name;
+
+    // Check if the local branch exists
+    git_reference *local_branch = nullptr;
+    error = git_reference_lookup(&local_branch, repo, local_branch_ref.c_str());
+
+    if (error == GIT_ENOTFOUND) {
+        // Local branch does not exist, check if the remote branch exists
+        git_reference *remote_branch = nullptr;
+        error = git_reference_lookup(&remote_branch, repo, remote_branch_ref.c_str());
+        if (error != 0) {
+            showMessage("Error: Remote branch '" + branch_name + "' not found.");
+            git_stash_pop(repo, 0, &apply_options);
+            git_status_list_free(status_list);
+            git_remote_free(remote);
+            git_repository_free(repo);
+            git_libgit2_shutdown();
+            return;
+        }
+
+        // Create a new local tracking branch
+        showMessage("Creating local branch '" + branch_name + "' tracking origin/" + branch_name);
+        repaint();
+        git_object *target = nullptr;
+        git_reference_peel(&target, remote_branch, GIT_OBJECT_COMMIT);
+        git_branch_create(&local_branch, repo, branch_name.c_str(), (git_commit *)target, 0);
+        git_branch_set_upstream(local_branch, ("origin/" + branch_name).c_str());
+        git_object_free(target);
+        git_reference_free(remote_branch);
+    }
+
+    // Check if already on the correct branch
+    git_reference *head = nullptr;
+    git_repository_head(&head, repo);
+    const char *current_branch = git_reference_shorthand(head);
+    bool already_on_branch = (current_branch && branch_name == current_branch);
+    if(!already_on_branch) {
+        // Switch to the new branch
+        showMessage("Switching to branch '" + branch_name + "'...");
+        repaint();
+        git_checkout_options checkout_opts = GIT_CHECKOUT_OPTIONS_INIT;
+        checkout_opts.checkout_strategy = GIT_CHECKOUT_SAFE;
+        git_checkout_tree(repo, (git_object *)local_branch, &checkout_opts);
+        git_repository_set_head(repo, local_branch_ref.c_str());
+    }
+
     git_oid fetch_head_id;
+    git_remote_fetch(remote, nullptr, &fetch_options, "pull");
     git_reference_name_to_id(&fetch_head_id, repo, "FETCH_HEAD");
 
-    //checkout main branch
-    git_object* main_obj;
-    git_object_lookup(&main_obj, repo, &head_id, GIT_OBJECT_ANY);
-    git_checkout_options checkout_options = GIT_CHECKOUT_OPTIONS_INIT;
-    checkout_options.checkout_strategy = GIT_CHECKOUT_FORCE;
-    error = git_checkout_tree(repo, main_obj, &checkout_options);
-    //MOVE HEAD TO DESIRED BRANCH
-    error = git_repository_set_head(repo, LOCAL_BRANCH);
-    if(error != 0) {
-        showMessage("error checking out main branch: ", std::string(giterr_last()->message));
-        git_object_free(main_obj);
-        git_stash_pop(repo, 0, &apply_options);
-        git_status_list_free(status_list);
-        git_remote_free(remote);
-        git_repository_free(repo);
-        git_libgit2_shutdown();
-    }
-    git_object_free(main_obj);
+    latest = nullptr;
+    git_commit_lookup(&latest, repo, &fetch_head_id);
+    git_oid head_id;
+    git_reference_name_to_id(&head_id, repo, "HEAD");
+    git_commit_lookup(&latest, repo, &head_id);
 
     ui->progressBar->setVisible(false);
     repaint();
 
-    if(!git_oid_equal(&fetch_head_id, &head_id)) {
+    if(!git_oid_equal(&fetch_head_id, &head_id) || !already_on_branch) {
         // Differences found, perform fast forward
-        git_reference * head_ref = nullptr;
-        git_reference_lookup(&head_ref, repo, LOCAL_BRANCH);
-
-        git_reference * new_head_ref = nullptr;
-        git_reference_set_target(&new_head_ref, head_ref, &fetch_head_id, "pull: fast-forward");
-
-        git_commit* latest = nullptr;
-        git_commit_lookup(&latest, repo, &fetch_head_id);
-        git_reset(repo, (git_object*)latest, GIT_RESET_HARD, NULL);
-
-        git_reference_free(new_head_ref);
-        git_reference_free(head_ref);
+        git_reset(repo, (git_object *)latest, GIT_RESET_HARD, nullptr);
+        git_commit_free(latest);
 
         std::string new_sector_version = getSctVersion(repoPath);
 
