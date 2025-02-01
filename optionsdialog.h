@@ -21,6 +21,7 @@ public:
     std::string get_proxy_URL();
     std::string get_proxy_username();
     std::string get_proxy_password();
+    std::string get_branch_name();
 
 private:
     Ui::optionsdialog *ui;

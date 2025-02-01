@@ -162,7 +162,7 @@
      <x>20</x>
      <y>270</y>
      <width>381</width>
-     <height>41</height>
+     <height>71</height>
     </rect>
    </property>
    <property name="font">
@@ -172,7 +172,23 @@
     </font>
    </property>
    <property name="text">
-    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Branch Settings&lt;/span&gt;&lt;/p&gt;&lt;p&gt;Not supported yet&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Branch Settings&lt;/span&gt;&lt;/p&gt;&lt;p&gt;During special events, or for development testing, switch to a different sector package branch by entering the branch name below.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+   </property>
+   <property name="wordWrap">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="branchName">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>350</y>
+     <width>201</width>
+     <height>24</height>
+    </rect>
    </property>
   </widget>
  </widget>
