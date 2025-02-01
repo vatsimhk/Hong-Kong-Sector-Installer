@@ -388,10 +388,10 @@ void MainWindow::updatePackage() {
     git_reference_name_to_id(&fetch_head_id, repo, "FETCH_HEAD");
 
     latest = nullptr;
-    git_commit_lookup(&latest, repo, &fetch_head_id);
     git_oid head_id;
     git_reference_name_to_id(&head_id, repo, "HEAD");
     git_commit_lookup(&latest, repo, &head_id);
+    git_commit_lookup(&latest, repo, &fetch_head_id);
 
     ui->progressBar->setVisible(false);
     repaint();
