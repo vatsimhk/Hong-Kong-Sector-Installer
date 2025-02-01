@@ -13,16 +13,21 @@ optionsDialog::optionsDialog(QWidget *parent) :
     }
 
     std::string line;
-    if(std::getline(inputFile, line)) {
-        ui->proxyURL->setText(QString::fromStdString(line));
-    }
-
-    if(std::getline(inputFile, line)) {
-        ui->proxyUsername->setText(QString::fromStdString(line));
-    }
-
-    if(std::getline(inputFile, line)) {
-        ui->proxyPassword->setText(QString::fromStdString(line));
+    std::vector<QLineEdit *> optionFields = {
+        ui->proxyURL,
+        ui->proxyUsername,
+        ui->proxyPassword,
+        ui->branchName
+    };
+    while(std::getline(inputFile, line)) {
+        for(auto &option : optionFields) {
+            std::string optionName = option->objectName().toStdString();
+            auto it = line.find(optionName);
+            if(it != std::string::npos) {
+                line.erase(it, optionName.length() + 1);
+                option->setText(QString::fromStdString(line));
+            }
+        }
     }
 }
 
@@ -35,9 +40,10 @@ optionsDialog::~optionsDialog()
         return;
     }
 
-    outputFile << ui->proxyURL->text().toStdString() << std::endl;
-    outputFile << ui->proxyUsername->text().toStdString() << std::endl;
-    outputFile << ui->proxyPassword->text().toStdString() << std::endl;
+    outputFile << "proxyURL:" << ui->proxyURL->text().toStdString() << std::endl;
+    outputFile << "proxyUsername:" << ui->proxyUsername->text().toStdString() << std::endl;
+    outputFile << "proxyPassword:" << ui->proxyPassword->text().toStdString() << std::endl;
+    outputFile << "branchName:" << ui->branchName->text().toStdString() << std::endl;
 
     outputFile.close();
 
@@ -55,4 +61,9 @@ std::string optionsDialog::get_proxy_username() {
 std::string optionsDialog::get_proxy_password() {
     return ui->proxyPassword->text().toStdString();
 }
+
+std::string optionsDialog::get_branch_name() {
+    return ui->branchName->text().toStdString();
+}
+
 

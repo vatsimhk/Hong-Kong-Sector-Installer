@@ -332,7 +332,10 @@ void MainWindow::updatePackage() {
         return;
     }
 
-    std::string branch_name = "main";
+    std::string branch_name = advanced_options_dialog->get_branch_name();
+    if(branch_name.empty()) {
+        branch_name = "main";
+    }
     std::string local_branch_ref = "refs/heads/" + branch_name;
     std::string remote_branch_ref = "refs/remotes/origin/" + branch_name;
 
